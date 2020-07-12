@@ -1,4 +1,5 @@
-import { createRPCServer, GenerateServerApi } from 'ts-rpc-proxy/server'
+// import { createRPCServer, GenerateServerApi } from 'ts-rpc-proxy/server'
+import { createRPCServer, GenerateServerApi } from '../src/server'
 import { Api } from './definition'
 import express from 'express'
 
@@ -18,7 +19,10 @@ const start: DownloadApi['start'] = async (scraperId, inputs, options) => {
 }
 const downloadEvents: DownloadApi['downloadEvents'] = async function (downloadId) {
   this.sse.emit('progress', { progress: 1, id: 1, label: 'something' })
-  this.sse.emit('done')
+  setTimeout(() => {
+    this.sse.emit('done')
+    this.sse.close()
+  }, 1000)
 }
 const download = { start, downloadEvents }
 

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "outDir": "build/",
+    "lib": ["es2017", "dom"],
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "alwaysStrict": true,
+    "strict": true,
+    "moduleResolution": "node",
+    "module": "commonjs",
+    "target": "es2017",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "ts-rpc-proxy": ["./src/index.ts"],
+      "ts-rpc-proxy/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "sample"]
+}

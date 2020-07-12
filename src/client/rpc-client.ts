@@ -79,16 +79,19 @@ class ClientEmitter<T extends EventsDefinition> {
   }
 
   private onMessage({ data }: { data: EventContract }) {
-    switch (data.type) {
-      case 'close':
-        this.eventSource.close()
-        break
-      case 'message':
-        this.sendEvent(data)
-        break
-      case 'error':
-        this.emitError(data)
-    }
+    if ('close' in data) this.eventSource.close()
+    else if ('message' in data) this.sendEvent(data)
+    else if ('error' in data) this.emitError(data)
+    // switch (data.type) {
+    //   case 'close':
+    //     this.eventSource.close()
+    //     break
+    //   case 'message':
+    //     this.sendEvent(data)
+    //     break
+    //   case 'error':
+    //     this.emitError(data)
+    // }
   }
   private onError() {
     console.error('Disconnect occurred')
