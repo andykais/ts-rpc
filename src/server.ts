@@ -9,7 +9,7 @@ import {
   ApiModule,
   ApiDefinition,
   ArgumentTypes
-} from '../types'
+} from './types'
 import {
   RequestContract,
   ResponseContract,
@@ -22,13 +22,13 @@ import {
   QueryEventContract,
   QueryContract,
   RequestEventSourceContract
-} from '../contracts'
+} from './internal/contracts'
 
 // ========================================================================
 // ======================= Server Types ===================================
 // ======================= ================================================
 
-type ServerContextWithEvents<T extends EventsDefinition> = { sse: ServerEmitter<T> }
+type ServerContextWithEvents<T extends EventsDefinition> = { sse: ServerEmitter<EventStream<T>> }
 
 type ServerEmitterThisFunction<T extends ApiFunction, Events extends EventsDefinition> = (
   this: ServerContextWithEvents<Events>,
@@ -51,8 +51,6 @@ type GenerateServerApi<T extends ApiDefinition> = {
   [K in keyof T]: GenerateServerApiModule<T[K]>
 }
 
-export { GenerateServerApiModule, GenerateServerApi }
-
 // ========================================================================
 // ======================= SSE Implementation =============================
 // ======================= ================================================
@@ -60,7 +58,8 @@ const timeout = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 const SSE_CLOSE_TIMEOUT = 2000
 
-class ServerEmitter<T extends EventsDefinition> extends EventEmitter {
+type InferEventsDefinition<T> = T extends EventStream<infer R> ? R : never
+class ServerEmitter<T extends EventStream<EventsDefinition>> extends EventEmitter {
   private closed: boolean
   private manualShutdown?: NodeJS.Timeout
 
@@ -72,13 +71,26 @@ class ServerEmitter<T extends EventsDefinition> extends EventEmitter {
       ;(this.emit as any)('close')
       if (this.manualShutdown) clearTimeout(this.manualShutdown)
     })
+
+    this.res.on('close', () => {
+      super.emit('close')
+    })
   }
 
   /** emit to the EventSource that instantiated this emitter */
-  public emit<E extends keyof T>(event: E extends string ? E : never, ...data: T[E]): boolean
+  public emit<E extends keyof InferEventsDefinition<T>>(
+    event: E extends string ? E : never,
+    ...data: InferEventsDefinition<T>[E]
+  ): boolean
   public emit(event: string, ...data: any[]) {
     if (this.closed) return false
     return this.sendEvent({ message: { event, data } })
+  }
+
+  on(event: 'close', listener: () => void): this
+  on(event: string, listener: (...args: any[]) => void) {
+    super.on(event, listener)
+    return this
   }
 
   public close() {
@@ -89,6 +101,7 @@ class ServerEmitter<T extends EventsDefinition> extends EventEmitter {
   }
 
   private sendEvent(data: EventContract): boolean {
+    console.log('writing', `data: ${JSON.stringify(data)}\n\n`)
     return this.res.write(`data: ${JSON.stringify(data)}\n\n`)
   }
 
@@ -198,6 +211,9 @@ const rpcServer = <T extends ApiDefinition>(api: GenerateServerApi<T>) => async 
       return handleEventRpc(eventContract)
     case 'rest':
       return handleRestRpc()
+    default:
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ message: 'request not found' }))
   }
 }
 
@@ -205,4 +221,10 @@ function createRPCServer<T extends ApiDefinition>(api: GenerateServerApi<T>) {
   return rpcServer(api)
 }
 
-export { createRPCServer }
+export {
+  createRPCServer,
+  ServerEmitter,
+  // type exports
+  GenerateServerApiModule,
+  GenerateServerApi
+}

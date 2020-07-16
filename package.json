@@ -1,12 +1,13 @@
 {
-  "name": "ts-rpc-proxy",
+  "name": "ts-rpc",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck:watch": "tsc --watch --noEmit",
-    "build": "tsc"
+    "compile:watch": "tsc --watch",
+    "build": "tsc && cp package.json build/src/package.json"
   },
   "keywords": [],
   "author": "Andrew Kaiser",
@@ -20,6 +21,7 @@
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "on-finished": "^2.3.0",
+    "shx": "^0.3.2",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0",
     "spdy": "^4.0.2",

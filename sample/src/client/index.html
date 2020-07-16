@@ -1,0 +1,59 @@
+<html>
+  <head>
+    <style>
+      :root {
+        font-family: sans-serif;
+      }
+      body {
+        display: grid;
+        grid-gap: 20px;
+        grid-template-rows: auto 1fr auto;
+        margin: 10px;
+        height: calc(100% - 20px);
+        background-color: #6990bf;
+      }
+      .heading {
+        color: white;
+      }
+      #messages {
+        /* overflowscroll-behavior-y: contain; */
+        /* scroll-snap-type: y mandatory; */
+        overflow-y: scroll;
+        border-radius: 7px;
+        box-shadow: -1px 0px 4px 1px rgba(0, 0, 0, 0.3) inset;
+        padding: 10px;
+        background-color: #c1d6ef;
+        /* overflow-anchor: none; */
+      }
+      .message {
+        word-break: break-all;
+      }
+
+      #chatbox {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-gap: 10px;
+      }
+      #messages * {
+        overflow-anchor: none;
+      }
+      #messages > #anchor {
+        overflow-anchor: auto;
+        height: 1px;
+      }
+      .notification-text {
+        color: lightslategrey;
+      }
+    </style>
+  </head>
+  <body>
+    <h2 class="heading">RPC Chat</h2>
+    <div id="messages">
+      <div id="anchor"></div>
+    </div>
+    <form id="chatbox">
+      <textarea></textarea>
+      <button type="submit">Post</button>
+    </form>
+  </body>
+</html>

@@ -5,7 +5,7 @@ import {
   ArgumentTypes,
   EventStream,
   EventsDefinition
-} from '../types'
+} from './types'
 import {
   RequestContract,
   SuccessfulResponse,
@@ -16,7 +16,7 @@ import {
   MessageEventContract,
   CloseEventContract,
   ErrorEventContract
-} from '../contracts'
+} from './internal/contracts'
 
 class RPCError extends Error {
   public name = 'RPCError'
@@ -62,10 +62,10 @@ class ClientEmitter<T extends EventsDefinition> {
 
   public constructor(route: string, module: string, method: string, params: any[]) {
     // prettier-ignore
-    const url = route + `?module=${encodeURIComponent(module)}&method=${encodeURIComponent(method)}&params=${encodeURIComponent(JSON.stringify(params))}`
+    const url = route + `?type=sse&module=${encodeURIComponent(module)}&method=${encodeURIComponent(method)}&params=${encodeURIComponent(JSON.stringify(params))}`
     this.eventSource = new EventSource(url)
-    this.eventSource.onmessage = this.onMessage.bind(this)
-    this.eventSource.onerror = this.onError.bind(this)
+    this.eventSource.onmessage = ({ data }) => this.onMessage(JSON.parse(data))
+    this.eventSource.onerror = () => this.onError()
     this.listeners = {}
   }
 
@@ -78,20 +78,10 @@ class ClientEmitter<T extends EventsDefinition> {
     this.listeners[eventArg].push(listenerArg)
   }
 
-  private onMessage({ data }: { data: EventContract }) {
+  private onMessage(data: EventContract) {
     if ('close' in data) this.eventSource.close()
     else if ('message' in data) this.sendEvent(data)
     else if ('error' in data) this.emitError(data)
-    // switch (data.type) {
-    //   case 'close':
-    //     this.eventSource.close()
-    //     break
-    //   case 'message':
-    //     this.sendEvent(data)
-    //     break
-    //   case 'error':
-    //     this.emitError(data)
-    // }
   }
   private onError() {
     console.error('Disconnect occurred')
@@ -100,7 +90,7 @@ class ClientEmitter<T extends EventsDefinition> {
 
   private sendEvent({ message }: MessageEventContract) {
     for (const listener of this.listeners[message.event] || []) {
-      listener(message.data)
+      listener(...message.data)
     }
   }
   private emitError({ error }: ErrorEventContract) {
@@ -166,4 +156,4 @@ function createRPCClient<T extends ApiDefinition>(route: string): GenerateClient
   return createModuleProxy(route)
 }
 
-export { createRPCClient }
+export { createRPCClient, GenerateClientApi, ClientEmitter }
