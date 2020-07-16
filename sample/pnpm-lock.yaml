@@ -5374,7 +5374,7 @@ packages:
     dev: false
     name: ts-rpc
     resolution:
-      integrity: sha512-EhiV0aah+cqYUwXkP52VhQxCKuU4nxGe4DJ6fm12sE6YutziPJ+WFvjDla4PdeKIIJW+BHPjUwZVDQGKCX76cg==
+      integrity: sha512-W6GCB495j9pm/DTV9Z1KvMSqc8j3r5QT5BQuiTN9+kiUrh+3WDYolXpy43spfWVDJpELcJC4IGjQqz1u5coQhA==
       tarball: 'file:deps/ts-rpc-1.0.0.tgz'
     version: 1.0.0
 specifiers:
