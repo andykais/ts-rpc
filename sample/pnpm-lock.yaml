@@ -1,6 +1,6 @@
 dependencies:
   express: 4.17.1
-  ts-rpc: 'link:../../../../.npm-packages/pnpm-global/node_modules/ts-rpc'
+  ts-rpc: 'file:deps/ts-rpc-1.0.0.tgz'
 devDependencies:
   '@babel/cli': 7.10.4_@babel+core@7.10.4
   '@babel/core': 7.10.4
@@ -2278,7 +2278,6 @@ packages:
     resolution:
       integrity: sha1-Qa4u62XvpiJorr/qg6x9eSmbCIc=
   /eventemitter3/4.0.4:
-    dev: true
     resolution:
       integrity: sha512-rlaVLnVxtxvoyLsQQFBx53YmXHDxRIzzTLbdfxqi4yocpSjAxXwkU0cScM5JgSKMqEhrZpnvQ2D9gjylR0AimQ==
   /events/3.1.0:
@@ -4399,6 +4398,14 @@ packages:
     dev: true
     resolution:
       integrity: sha1-6Eg5bwV9Ij8kOGkkYY4laUFh7Ec=
+  /rxjs/6.6.0:
+    dependencies:
+      tslib: 1.13.0
+    dev: false
+    engines:
+      npm: '>=2.0.0'
+    resolution:
+      integrity: sha512-3HMA8z/Oz61DUHe+SdOiQyzIf4tOx5oQHmMir7IZEu6TMqCLHT4LRcmNaUS0NwOz8VLvmmBduMsoaUvMaIiqzg==
   /safe-buffer/5.1.2:
     resolution:
       integrity: sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==
@@ -4927,7 +4934,6 @@ packages:
     resolution:
       integrity: sha512-I9Nmly0ufJoZRMuAT9d5ijsC2B7oSPvUnOJt/GhgoATlPGYfa17VicDKPcqwUCrHpOkCxr/ybLYwbnS4cOxmvQ==
   /tslib/1.13.0:
-    dev: true
     resolution:
       integrity: sha512-i/6DQjL8Xf3be4K/E6Wgpekn5Qasl1usyw++dAA35Ue5orEn65VIxOA+YvNNl9HV3qv70T7CNwjODHZrLwvd1Q==
   /tty-browserify/0.0.0:
@@ -5361,6 +5367,16 @@ packages:
     dev: true
     resolution:
       integrity: sha512-AX3Zw5iPruN5ie6xGRIDgqkT+ZhnRlZMLMHAs8tg7nRruy2Nb+i5o9bwghAogtM08q1dpr2LVoS8KSTMYpWXUw==
+  'file:deps/ts-rpc-1.0.0.tgz':
+    dependencies:
+      eventemitter3: 4.0.4
+      rxjs: 6.6.0
+    dev: false
+    name: ts-rpc
+    resolution:
+      integrity: sha512-EhiV0aah+cqYUwXkP52VhQxCKuU4nxGe4DJ6fm12sE6YutziPJ+WFvjDla4PdeKIIJW+BHPjUwZVDQGKCX76cg==
+      tarball: 'file:deps/ts-rpc-1.0.0.tgz'
+    version: 1.0.0
 specifiers:
   '@babel/cli': ^7.10.4
   '@babel/core': ^7.10.4
@@ -5370,7 +5386,7 @@ specifiers:
   express: ^4.17.1
   html-webpack-plugin: ^4.3.0
   ts-loader: ^8.0.1
-  ts-rpc: 'file:../build/src/ts-rpc-1.0.0.tgz'
+  ts-rpc: 'file:deps/ts-rpc-1.0.0.tgz'
   typescript: ^4.0.0-beta
   webpack: ^4.43.0
   webpack-cli: ^3.3.12

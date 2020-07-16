@@ -20,5 +20,5 @@
       "ts-rpc-proxy/*": ["./src/*"]
     }
   },
-  "include": ["src", "sample"]
+  "include": ["src"]
 }

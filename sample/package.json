@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build:localdeps": "npm pack ../build/ && mkdir -p deps && mv ./ts-rpc-1.0.0.tgz deps",
+    "preinstall": "npm run build:localdeps",
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck:watch": "tsc --noEmit --watch",
     "build": "rm -fr build && npm run build:client && npm run build:server",
@@ -17,7 +19,7 @@
   "license": "MIT",
   "dependencies": {
     "express": "^4.17.1",
-    "ts-rpc": "file:../build/src/ts-rpc-1.0.0.tgz"
+    "ts-rpc": "file:deps/ts-rpc-1.0.0.tgz"
   },
   "devDependencies": {
     "@babel/cli": "^7.10.4",

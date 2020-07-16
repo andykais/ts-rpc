@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck:watch": "tsc --watch --noEmit",
     "compile:watch": "tsc --watch",
-    "build": "tsc && cp package.json build/src/package.json"
+    "build": "rm -rf build && tsc && cp package.json build/package.json"
   },
   "keywords": [],
   "author": "Andrew Kaiser",
