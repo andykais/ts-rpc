@@ -11,7 +11,7 @@
     "build": "rm -fr build && npm run build:client && npm run build:server",
     "build:client": "webpack --config webpack.config.browser.js",
     "build:server": "tsc --outDir build/server",
-    "start:server": "node build/server/server/index.js",
+    "start": "node build/server/server/index.js",
     "compile:client:watch": "webpack --watch --config webpack.config.browser.js"
   },
   "keywords": [],

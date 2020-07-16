@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck:watch": "tsc --watch --noEmit",
     "compile:watch": "tsc --watch",
-    "build": "rm -rf build && tsc && cp package.json build/package.json"
+    "build": "rm -rf build && tsc && cp package.json build/package.json",
+    "start": "npm run build && cd sample && npm run build:server && npm install && npm run build && npm run start"
   },
   "keywords": [],
   "author": "Andrew Kaiser",

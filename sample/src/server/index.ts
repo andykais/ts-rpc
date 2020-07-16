@@ -11,5 +11,5 @@ const app = express()
 app.use(express.static('./build/client'))
 app.use('/rpc', createRPCServer<Api>({ chat }))
 // app.get('/', (req,res) => res.send(fs.readFileSync('./index.html').toString()))
-const PORT = 4000
+const PORT = process.env.PORT || 4000
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`))
