@@ -9,7 +9,6 @@
     "compile:watch": "tsc --watch",
     "build:this": "rm -rf build && tsc && cp package.json build/package.json",
     "build": "npm run build:this && cd sample && npm install && npm run build",
-    "start": "npm install && npm run build && cd sample && npm install && npm run build && npm run start",
     "start": "cd sample && npm run start"
   },
   "keywords": [],
