@@ -17,16 +17,7 @@ import {
   CloseEventContract,
   ErrorEventContract
 } from './internal/contracts'
-
-class RPCError extends Error {
-  public name = 'RPCError'
-  public code: string
-
-  constructor({ code, message }: { code: string; message: string }) {
-    super(message)
-    this.code = code
-  }
-}
+import { RPCError } from './errors'
 
 // ========================================================================
 // ======================= Client Types ===================================
@@ -69,13 +60,14 @@ class ClientEmitter<T extends EventsDefinition> {
     this.listeners = {}
   }
 
-  on<E extends keyof T>(event: E, listener: (...data: T[E]) => void): void
+  on<E extends keyof T>(event: E, listener: (...data: T[E]) => void): this
   // these overloads do not behave here. We can trust they do what we want though
   on(event: any, listener: any) {
     const eventArg = event as string
     const listenerArg = listener as Listener
     if (!this.listeners[eventArg]) this.listeners[eventArg] = []
     this.listeners[eventArg].push(listenerArg)
+    return this
   }
 
   private onMessage(data: EventContract) {
@@ -94,12 +86,13 @@ class ClientEmitter<T extends EventsDefinition> {
     }
   }
   private emitError({ error }: ErrorEventContract) {
+    const errorInstance = new RPCError(error.code, error.message)
     if (!this.listeners['error']?.length) {
-      throw new Error(`Server event error: ${error.message}. Code: ${error.code}`)
+      throw errorInstance
     }
 
     for (const listener of this.listeners['error']) {
-      listener(error)
+      listener(errorInstance)
     }
   }
 }
@@ -113,7 +106,7 @@ const invokeRestRpc = async (route: string, module: string, method: string, para
   const response = await fetch(route, { method: 'PUT', body: JSON.stringify(contract) })
   const body: ResponseContract = await response.json()
   if ('error' in body) {
-    throw new RPCError(body.error)
+    throw new RPCError(body.error.code, body.error.message)
   } else {
     return body.result
   }
@@ -156,4 +149,4 @@ function createRPCClient<T extends ApiDefinition>(route: string): GenerateClient
   return createModuleProxy(route)
 }
 
-export { createRPCClient, GenerateClientApi, ClientEmitter }
+export { createRPCClient, GenerateClientApi, ClientEmitter, RPCError }

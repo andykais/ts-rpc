@@ -23,6 +23,7 @@ import {
   QueryContract,
   RequestEventSourceContract
 } from './internal/contracts'
+import { RPCError } from './errors'
 
 // ========================================================================
 // ======================= Server Types ===================================
@@ -134,7 +135,8 @@ function getRequestBody(req: http.IncomingMessage): Promise<RequestContract> {
 function success(result: any): SuccessfulResponse {
   return { result }
 }
-function error(code: string, message: string): FailedResponse {
+function error(code: string = '', message: string = ''): FailedResponse {
+  console.log('creating error: ', { code, message })
   return { error: { code, message } }
 }
 function send(res: http.ServerResponse, response: ResponseContract) {
@@ -224,6 +226,7 @@ function createRPCServer<T extends ApiDefinition>(api: GenerateServerApi<T>) {
 export {
   createRPCServer,
   ServerEmitter,
+  RPCError,
   // type exports
   GenerateServerApiModule,
   GenerateServerApi

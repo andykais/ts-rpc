@@ -1,4 +1,4 @@
-import { createRPCClient, GenerateClientApi, ClientEmitter } from 'ts-rpc/client'
+import { createRPCClient, GenerateClientApi, ClientEmitter, RPCError } from 'ts-rpc/client'
 import { Api, User } from '../definition'
 
 type ClientApi = GenerateClientApi<Api>
@@ -36,25 +36,36 @@ function getOrThrowElement(query: string): Element {
   return element
 }
 
-// prettier-ignore
-async function getUsername(client: GenerateClientApi<Api>): Promise<{ realtime: ChatRealtime; user: User }> {
-    const messagesElement = getOrThrowElement('#messages') as HTMLElement
-    const anchorElement = getOrThrowElement('#anchor') as HTMLElement
+async function getUsername(
+  client: GenerateClientApi<Api>,
+  promptMessage = 'Whats your name?'
+): Promise<{ realtime: ChatRealtime; user: User }> {
+  const messagesElement = getOrThrowElement('#messages') as HTMLElement
+  const anchorElement = getOrThrowElement('#anchor') as HTMLElement
 
-  const username = prompt('Username?')
+  const username = prompt(promptMessage)
   if (!username) return getUsername(client)
 
-  const realtime = new client.chat.connectToChat(username)
-  return await new Promise(resolve => {
-    // todo also post the 'user added' message from here...
-    realtime.on('clientAdded', user => {
-      if (user.username === username) 
-        {
+  try {
+    const realtime = new client.chat.connectToChat(username)
+    return await new Promise((resolve, reject) => {
+      // todo also post the 'user added' message from here...
+      realtime.on('clientAdded', user => {
+        if (user.username === username) {
           resolve({ realtime, user })
           Chat.onUserAdded(messagesElement, anchorElement)(user)
         }
+      })
+      ;(realtime.on as any)('error', (error: RPCError) => {
+        reject(error)
+      })
     })
-  })
+  } catch (e) {
+    if (e instanceof RPCError) {
+      if (e.code === 'Duplicate') return getUsername(client, 'Username taken! Try another one.')
+    }
+    throw e
+  }
 }
 
 class Chat {
