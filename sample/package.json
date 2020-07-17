@@ -5,11 +5,11 @@
   "main": "index.js",
   "scripts": {
     "build:localdeps": "npm pack ../build/ && mkdir -p deps && mv ./ts-rpc-1.0.0.tgz deps",
-    "preinstall": "npm run build:localdeps",
+    "preinstall": "echo pwd: $PWD && npm run build:localdeps",
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck:watch": "tsc --noEmit --watch",
     "build": "rm -fr build && npm run build:client && npm run build:server",
-    "build:client": "webpack --config webpack.config.browser.js",
+    "build:client": "echo pwd: $PWD && webpack --config webpack.config.browser.js",
     "build:server": "tsc --outDir build/server",
     "start": "node build/server/server/index.js",
     "compile:client:watch": "webpack --watch --config webpack.config.browser.js"
