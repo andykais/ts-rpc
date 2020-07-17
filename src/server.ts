@@ -178,6 +178,9 @@ const rpcServer = <T extends ApiDefinition>(api: GenerateServerApi<T>) => async 
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache'
     })
+    // not sure if this is a good idea yet. We might want to make this configurable via the client
+    res.setTimeout(0)
+    res.connection.setTimeout(0)
 
     const { module, method, params } = contract
 
