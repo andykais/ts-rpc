@@ -11,9 +11,7 @@
     "module": "commonjs",
     "target": "es2017",
     "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "declaration": true,
-    "declarationMap": true
+    "esModuleInterop": true
   },
   "include": ["src"]
 }

@@ -1,39 +1,24 @@
-import { RPCError } from './errors'
+type Literal = boolean | null | number | string;
+export type Json = Literal | { [key: string]: Json } | Json[];
+// TODO support rich json?
+export type RichJson = void | Date | Literal | { [key: string]: Json } | Json[];
 
-type JsonPrimitive = void | Date | string | number | boolean | null
-interface JsonMap extends Record<string, JsonPrimitive | JsonArray | JsonMap> {}
-interface JsonArray extends Array<JsonPrimitive | JsonArray | JsonMap> {}
-type Json = JsonPrimitive | JsonMap | JsonArray
 
-type ApiFunction = (...args: any[]) => Json
-type ApiModule = {
-  [method: string]: ApiFunction
-}
-type ApiDefinition = {
-  [moduleNamespace: string]: ApiModule
+export type ApiFunction = (...args: any[]) => Json | void
+
+export interface ApiSpec {
+  [module_or_method: string]: ApiSpec | ApiFunction
 }
 
-type EventsDefinition = {
-  [eventName: string]: any[]
-  // TODO add error types
-  // error: [RPCError]
-}
-type EventStream<T extends EventsDefinition> = {
-  'rpc-internal-identifier': 'sse'
-}
-
-export {
-  Json,
-  ApiFunction,
-  ApiModule,
-  ApiDefinition,
-  EventStream,
-  ValidateApiDefinition,
-  EventsDefinition,
-  ArgumentTypes
+/**
+ * use this class for errors shared on both the client & server
+ * on the server, throw a class implementing this error
+ * on the client, register these errors when instantiating the client
+ */
+class RPCError extends Error {
+  public constructor(message: string, public data?: Json) {
+    super(message)
+  }
 }
 
-// utility types
-type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never
-
-type ValidateApiDefinition<T extends ApiDefinition> = T
+export { RPCError }

@@ -1,152 +1,77 @@
-import {
-  ApiFunction,
-  ApiModule,
-  ApiDefinition,
-  ArgumentTypes,
-  EventStream,
-  EventsDefinition
-} from './types'
-import {
-  RequestContract,
-  SuccessfulResponse,
-  FailedResponse,
-  ResponseContract,
-  RequestEventSourceContract,
-  EventContract,
-  MessageEventContract,
-  CloseEventContract,
-  ErrorEventContract
-} from './internal/contracts'
-import { RPCError } from './errors'
+import { RequestContract, ResponseContract } from './contracts'
+import { Json, ApiFunction, ApiSpec, RPCError } from './types'
 
-// ========================================================================
-// ======================= Client Types ===================================
-// ======================= ================================================
 
-interface ClientEmitterClass<Params extends any[], Events extends EventsDefinition> {
-  new (...args: Params): ClientEmitter<Events>
+// ============================== Util Types ============================== \\
+
+export type CreateClientApiFunction<T extends ApiFunction> = (...args: Parameters<T>) => Promise<ReturnType<T>>
+
+export type CreateClientApi<T extends ApiSpec> = {
+  [K in keyof T]: T[K] extends ApiSpec ? CreateClientApi<T[K]> : T[K] extends ApiFunction ? CreateClientApiFunction<T[K]> : never
 }
 
-// prettier-ignore
-type ClientRestFunction<T extends ApiFunction> = (...args: ArgumentTypes<T>) => Promise<ReturnType<T>>
 
-type GenerateClientApiFunction<T extends ApiFunction> = ReturnType<T> extends EventStream<infer R>
-  ? ClientEmitterClass<ArgumentTypes<T>, R>
-  : ClientRestFunction<T>
-
-// prettier-ignore
-type GenerateClientApiModule<T extends ApiModule> = {
-  [K in keyof T]: GenerateClientApiFunction<T[K]>
-}
-type GenerateClientApi<T extends ApiDefinition> = {
-  [K in keyof T]: GenerateClientApiModule<T[K]>
+// ========================= Runtime Implementation ======================== \\
+interface RPCClientOptions {
+  fetch?: typeof fetch
+  common_errors?: typeof RPCError[]
 }
 
-// ========================================================================
-// ======================= SSE Implementation =============================
-// ======================= ================================================
+class RestClient<T extends ApiSpec> {
+  private headers = {'Content-Type': 'application/json'}
+  private registered_errors: { [error_classname: string]: typeof RPCError } = {}
+  private fetch_impl: typeof fetch
 
-type Listener = (...data: any[]) => void
-class ClientEmitter<T extends EventsDefinition> {
-  private eventSource: EventSource
-  private listeners: { [event: string]: Listener[] }
-
-  public constructor(route: string, module: string, method: string, params: any[]) {
-    // prettier-ignore
-    const url = route + `?type=sse&module=${encodeURIComponent(module)}&method=${encodeURIComponent(method)}&params=${encodeURIComponent(JSON.stringify(params))}`
-    this.eventSource = new EventSource(url)
-    this.eventSource.onmessage = ({ data }) => this.onMessage(JSON.parse(data))
-    this.eventSource.onerror = () => this.onError()
-    this.listeners = {}
-  }
-
-  on<E extends keyof T>(event: E, listener: (...data: T[E]) => void): this
-  // these overloads do not behave here. We can trust they do what we want though
-  on(event: any, listener: any) {
-    const eventArg = event as string
-    const listenerArg = listener as Listener
-    if (!this.listeners[eventArg]) this.listeners[eventArg] = []
-    this.listeners[eventArg].push(listenerArg)
-    return this
-  }
-
-  private onMessage(data: EventContract) {
-    if ('close' in data) this.eventSource.close()
-    else if ('message' in data) this.sendEvent(data)
-    else if ('error' in data) this.emitError(data)
-  }
-  private onError() {
-    console.error('Disconnect occurred')
-    this.eventSource.close()
-  }
-
-  private sendEvent({ message }: MessageEventContract) {
-    for (const listener of this.listeners[message.event] || []) {
-      listener(...message.data)
-    }
-  }
-  private emitError({ error }: ErrorEventContract) {
-    const errorInstance = new RPCError(error.code, error.message)
-    if (!this.listeners['error']?.length) {
-      throw errorInstance
+  public constructor(private rpc_route: string, options: RPCClientOptions = {}) {
+    console.log({ options })
+    this.fetch_impl = options.fetch ?? fetch
+    const { common_errors = [] } = options
+    for (const error of common_errors) {
+      if (this.registered_errors.hasOwnProperty(error.name)) throw new Error(`Duplicate error class name ${error.name}. Two common error classes must not share the same name. ts-rpc relies on unique names to encode/decode errors.`)
+      this.registered_errors[error.name] = error
     }
 
-    for (const listener of this.listeners['error']) {
-      listener(errorInstance)
-    }
+    this.request_rpc = this.request_rpc.bind(this)
   }
-}
 
-// ========================================================================
-// ======================= REST Implementation ============================
-// ======================= ================================================
-
-const invokeRestRpc = async (route: string, module: string, method: string, params: any[]) => {
-  const contract: RequestContract = { method, module, params }
-  const response = await fetch(route, { method: 'PUT', body: JSON.stringify(contract) })
-  const body: ResponseContract = await response.json()
-  if ('error' in body) {
-    throw new RPCError(body.error.code, body.error.message)
-  } else {
-    return body.result
+  public async request_rpc(module_path: string[], method: string, params: any[]) {
+    const contract: RequestContract = { module_path, method, params }
+    const response = await this.fetch_impl(this.rpc_route, {
+      method: 'PUT',
+      body: JSON.stringify(contract),
+      headers: this.headers,
+    })
+    const body: ResponseContract = await response.json()
+    if ('error' in  body) {
+      if (this.registered_errors.hasOwnProperty(body.error.name)) {
+        const error_class = this.registered_errors[body.error.name]
+        // we _can_ attach stack traces here. I'm just not convinced its a good idea anymore
+        throw new error_class(body.error.message, body.error.data)
+      } else {
+        throw new Error(body.error.message)
+      }
+    }
+    else return body.result
   }
 }
 
 class InvokeProxyTarget {}
-function createRpcProxy(route: string, module: string, method: string) {
-  const target = InvokeProxyTarget
-  const handler = {
-    apply: (target: any, prop: any, args: any[]) => {
-      return invokeRestRpc(route, module, method, args)
+function create_rpc_proxy<T extends ApiSpec>(rpc_client: RestClient<T>, module_path: string[]): CreateClientApi<T> {
+  return new Proxy(InvokeProxyTarget, {
+    get: (target: any, prop: string) => {
+      return create_rpc_proxy(rpc_client, [...module_path, prop])
     },
-    construct: (target: any, args: any[]) => {
-      return new ClientEmitter(route, module, method, args)
-    }
-  }
-  return new Proxy(target, handler)
+    apply: async (target: any, prop: any, args: Json[]) => {
+      if  (module_path.length === 0) throw new Error(`Not a function`)
+      const [method] = module_path.slice(-1)
+      return await rpc_client.request_rpc(module_path.slice(0, -1), method, args)
+    },
+  })
 }
 
-function createMethodProxy(route: string, module: string) {
-  const target = {}
-  const handler = {
-    get: (target: any, prop: string) => {
-      return createRpcProxy(route, module, prop)
-    }
-  }
-  return new Proxy(target, handler)
-}
-function createModuleProxy(route: string) {
-  const target = {}
-  const handler = {
-    get: (target: any, prop: string) => {
-      return createMethodProxy(route, prop)
-    }
-  }
-  return new Proxy(target, handler)
+function create_rpc_client<T extends ApiSpec>(rpc_route: string, options: RPCClientOptions): CreateClientApi<T> {
+  const rest_client = new RestClient<T>(rpc_route, options)
+  return create_rpc_proxy<T>(rest_client, [])
 }
 
-function createRPCClient<T extends ApiDefinition>(route: string): GenerateClientApi<T> {
-  return createModuleProxy(route)
-}
-
-export { createRPCClient, GenerateClientApi, ClientEmitter, RPCError }
+export { create_rpc_client }
