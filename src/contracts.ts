@@ -13,11 +13,11 @@ export interface RequestContract {
 }
 
 /** returned from a server route handler if no errors occur */
-interface SuccessfulResponse {
+export interface SuccessfulResponse {
   result: Json
 }
 /** returned if an error occurs in the server route handler */
-interface FailedResponse {
+export interface FailedResponse {
   error: ErrorContract
 }
 export type ResponseContract = SuccessfulResponse | FailedResponse

@@ -27,6 +27,7 @@ export type GroveApi = {
   tag: {
     // create: (group: string, name: string, description: string) => Tag
     delete: (id: Tag['id']) => void
+    list: () => Tag[]
   //   search: (group: string, name: string) => Tag[]
   //   get_media_tags: (media_id: Media['id']) => Tag[]
   }
@@ -38,3 +39,4 @@ export type GroveApi = {
   // }
   health: () => { time: string }
 }
+

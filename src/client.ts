@@ -8,6 +8,7 @@ export type CreateClientApiFunction<T extends ApiFunction> = (...args: Parameter
 
 export type CreateClientApi<T extends ApiSpec> = {
   [K in keyof T]: T[K] extends ApiSpec ? CreateClientApi<T[K]> : T[K] extends ApiFunction ? CreateClientApiFunction<T[K]> : never
+  // [K in keyof T]: T[K] extends ApiSpec ? string : number//: T[K] extends ApiSpec ? CreateClientApi<T[K]> : never
 }
 
 
@@ -23,7 +24,6 @@ class RestClient<T extends ApiSpec> {
   private fetch_impl: typeof fetch
 
   public constructor(private rpc_route: string, options: RPCClientOptions = {}) {
-    console.log({ options })
     this.fetch_impl = options.fetch ?? fetch
     const { common_errors = [] } = options
     for (const error of common_errors) {
@@ -56,7 +56,7 @@ class RestClient<T extends ApiSpec> {
 }
 
 class InvokeProxyTarget {}
-function create_rpc_proxy<T extends ApiSpec>(rpc_client: RestClient<T>, module_path: string[]): CreateClientApi<T> {
+function create_rpc_proxy<T extends ApiSpec>(rpc_client: RestClient<T>, module_path: string[]): any {
   return new Proxy(InvokeProxyTarget, {
     get: (target: any, prop: string) => {
       return create_rpc_proxy(rpc_client, [...module_path, prop])

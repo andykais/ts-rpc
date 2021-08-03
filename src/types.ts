@@ -4,7 +4,8 @@ export type Json = Literal | { [key: string]: Json } | Json[];
 export type RichJson = void | Date | Literal | { [key: string]: Json } | Json[];
 
 
-export type ApiFunction = (...args: any[]) => Json | void
+export type ApiFunction = (...args: any[]) => any // Json type is good...but it makes interfaces pretty much useless
+// export type ApiFunction = (...args: any[]) => Json | void
 
 export interface ApiSpec {
   [module_or_method: string]: ApiSpec | ApiFunction
