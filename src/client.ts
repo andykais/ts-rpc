@@ -19,28 +19,29 @@ interface RPCClientOptions {
 }
 
 class RestClient<T extends ApiSpec> {
-  private headers = {'Content-Type': 'application/json'}
-  private registered_errors: { [error_classname: string]: typeof RPCError } = {}
-  private fetch_impl: typeof fetch
+  public headers = {'Content-Type': 'application/json'}
+  public registered_errors: { [error_classname: string]: typeof RPCError } = {}
+  public fetch_impl: typeof fetch | undefined
 
-  public constructor(private rpc_route: string, options: RPCClientOptions = {}) {
-    this.fetch_impl = options.fetch ?? fetch
+  public constructor(public rpc_route: string, options: RPCClientOptions = {}) {
+    if (options.fetch) this.fetch_impl = options.fetch
+    else this.fetch_impl = fetch
     const { common_errors = [] } = options
     for (const error of common_errors) {
       if (this.registered_errors.hasOwnProperty(error.name)) throw new Error(`Duplicate error class name ${error.name}. Two common error classes must not share the same name. ts-rpc relies on unique names to encode/decode errors.`)
       this.registered_errors[error.name] = error
     }
-
-    this.request_rpc = this.request_rpc.bind(this)
   }
 
-  public async request_rpc(module_path: string[], method: string, params: any[]) {
+  public request_rpc = async (module_path: string[], method: string, params: any[]) => {
     const contract: RequestContract = { module_path, method, params }
-    const response = await this.fetch_impl(this.rpc_route, {
+    const options = {
       method: 'PUT',
       body: JSON.stringify(contract),
       headers: this.headers,
-    })
+    }
+    const fetch_impl = this.fetch_impl ?? fetch
+    const response = await fetch_impl(this.rpc_route, options)
     const body: ResponseContract = await response.json()
     if ('error' in  body) {
       if (this.registered_errors.hasOwnProperty(body.error.name)) {
@@ -69,7 +70,7 @@ function create_rpc_proxy<T extends ApiSpec>(rpc_client: RestClient<T>, module_p
   })
 }
 
-function create_rpc_client<T extends ApiSpec>(rpc_route: string, options: RPCClientOptions): CreateClientApi<T> {
+function create_rpc_client<T extends ApiSpec>(rpc_route: string, options: RPCClientOptions = {}): CreateClientApi<T> {
   const rest_client = new RestClient<T>(rpc_route, options)
   return create_rpc_proxy<T>(rest_client, [])
 }

@@ -21,7 +21,6 @@ interface BareMinimumResponse {
 
 class RPCServer<T extends ApiSpec> {
   public constructor(private server_api: CreateServerApi<T>) {
-    this.request_handler = this.request_handler.bind(this)
   }
 
   private async get_request_body(req: BareMinimumRequest): Promise<RequestContract> {
@@ -49,23 +48,34 @@ class RPCServer<T extends ApiSpec> {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify(response))
   }
-  public async request_handler(req: BareMinimumRequest, res: BareMinimumResponse, next: any) {
 
-    const { module_path, method, params } = await this.get_request_body(req)
+  private async handle_request(module_path: string[], method: string, params: any): Promise<ResponseContract> {
     // this is where types go to die
     const server_api_module = module_path.reduce((api, module) => api[module], this.server_api as any)
-    if (!server_api_module) return this.send(res, this.error('ModuleNotFound', `module ${module_path.join('.')} doesnt exist on the server.`))
-    if (!server_api_module[method]) return this.send(res, this.error('MethodNotFound', `Method ${method} doesnt exist on the server.`))
+    if (!server_api_module) return this.error('ModuleNotFound', `module ${module_path.join('.')} doesnt exist on the server.`)
+    if (!server_api_module[method]) return this.error('MethodNotFound', `Method ${method} doesnt exist on the server.`)
     const result = await server_api_module[method](...params)
       .catch((e: any) => this.error(e.name, e.toString(), e.data))
       .then((v: any) => ({ result: v }))
+    return result
+  }
+  public express_handler = async (req: BareMinimumRequest, res: BareMinimumResponse, next: any) => {
+    const { module_path, method, params } = await this.get_request_body(req)
+    const result = await this.handle_request(module_path, method, params)
     this.send(res, result)
+  }
+
+  public sveltekit_handler = async (req: { body: any }) => {
+    const { module_path, method, params } = req.body
+    const result = await this.handle_request(module_path, method, params)
+    return { body: result }
+
   }
 }
 
 function create_rpc_server<T extends ApiSpec>(server_api: CreateServerApi<T>) {
   const rpc_server = new RPCServer(server_api)
-  return rpc_server.request_handler
+  return rpc_server
 }
 
 export { create_rpc_server }
