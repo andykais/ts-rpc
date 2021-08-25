@@ -8,8 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck:watch": "tsc --watch --noEmit",
     "compile:watch": "tsc --watch",
-    "build:this": "rm -rf build && tsc && cp package.json build/package.json",
-    "build": "npm run build:this && cd sample && npm un ts-rpc && npm i && npm i ./deps/ts-rpc-1.0.0.tgz && npm run build",
+    "build": "rm -rf build && tsc && cp package.json build",
+    "build:sample": "npm run build && cd sample && pnpm un ts-rpc && pnpm i && pnpm i ../build/ && npm run build",
     "start": "cd sample && npm run start"
   },
   "keywords": [],

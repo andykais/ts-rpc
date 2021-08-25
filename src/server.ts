@@ -54,10 +54,12 @@ class RPCServer<T extends ApiSpec> {
     const server_api_module = module_path.reduce((api, module) => api[module], this.server_api as any)
     if (!server_api_module) return this.error('ModuleNotFound', `module ${module_path.join('.')} doesnt exist on the server.`)
     if (!server_api_module[method]) return this.error('MethodNotFound', `Method ${method} doesnt exist on the server.`)
-    const result = await server_api_module[method](...params)
-      .catch((e: any) => this.error(e.name, e.toString(), e.data))
-      .then((v: any) => ({ result: v }))
-    return result
+    try {
+      const result = await server_api_module[method](...params)
+      return { result }
+    } catch(e) {
+      return this.error(e.name, e.toString(), e.data)
+    }
   }
   public express_handler = async (req: BareMinimumRequest, res: BareMinimumResponse, next: any) => {
     const { module_path, method, params } = await this.get_request_body(req)
