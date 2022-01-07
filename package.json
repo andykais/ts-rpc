@@ -15,6 +15,7 @@
   "keywords": [],
   "author": "Andrew Kaiser",
   "license": "MIT",
+  "type": "module",
   "devDependencies": {
     "@types/node": "^16.4.10",
     "typescript": "^3.9.5"

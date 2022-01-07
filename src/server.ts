@@ -4,7 +4,7 @@ import type { ApiFunction, ApiSpec } from './types'
 
 // ============================== Util Types ============================== \\
 
-export type CreateServerApiFunction<T extends ApiFunction> = (...args: Parameters<T>) => Promise<ReturnType<T>>
+export type CreateServerApiFunction<T extends ApiFunction> = (...args: Parameters<T>) => ReturnType<T> | Promise<ReturnType<T>>
 
 export type CreateServerApi<T extends ApiSpec> = {
   [K in keyof T]: T[K] extends ApiSpec ? CreateServerApi<T[K]> : T[K] extends ApiFunction ? CreateServerApiFunction<T[K]> : never
@@ -58,6 +58,7 @@ class RPCServer<T extends ApiSpec> {
       const result = await server_api_module[method](...params)
       return { result }
     } catch(e) {
+      console.error(e)
       return this.error(e.name, e.toString(), e.data)
     }
   }
