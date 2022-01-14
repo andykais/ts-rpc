@@ -81,4 +81,4 @@ function create_rpc_server<T extends ApiSpec>(server_api: CreateServerApi<T>) {
   return rpc_server
 }
 
-export { create_rpc_server }
+export { RPCServer, create_rpc_server }
