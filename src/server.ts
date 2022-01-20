@@ -68,8 +68,8 @@ class RPCServer<T extends ApiSpec> {
     this.send(res, result)
   }
 
-  public sveltekit_handler = async (req: { body: any }) => {
-    const { module_path, method, params } = req.body
+  public sveltekit_handler = async (args: { request: Request }) => {
+    const {  module_path, method, params } = await args.request.json()
     const result = await this.handle_request(module_path, method, params)
     return { body: result }
 
