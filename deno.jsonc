@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "test":       "deno run --unstable --check         test/functional.test.ts",
+    "test:watch": "deno run --unstable --check --watch test/functional.test.ts"
+  }
+}
