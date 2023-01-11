@@ -34,7 +34,8 @@ test('client->server rest', async () => {
   app.listen({ port: 3000, signal: controller.signal });
 
   const time = await client.health.time()
-  console.log({ time })
+  assert_equals(typeof time, 'object')
+
   controller.abort()
   } finally {
     controller.abort()

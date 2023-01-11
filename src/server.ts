@@ -2,7 +2,8 @@ import type { RequestContract, ResponseContract, SuccessfulResponse, FailedRespo
 import { ContentType, BrokenContractError } from './contracts.ts'
 import { type Middleware } from "https://deno.land/x/oak@v11.1.0/mod.ts";
 import type { ApiFunction, ApiSpec } from './types.ts'
-import * as msgpack from 'npm:@msgpack/msgpack'
+import * as msgpack from 'https://deno.land/x/msgpackr@v1.8.0/index.js'
+import { Buffer } from "https://deno.land/std@0.170.0/node/buffer.ts";
 
 
 // ============================== Util Types ============================== \\
@@ -15,7 +16,6 @@ export type CreateServerApi<T extends ApiSpec> = {
 
 interface BareMinimumRequest {
   on(event: string, listener: (data: any) => void): this
-  json(): Promise<any>
 }
 interface BareMinimumResponse {
   writeHead(status: number, headers: {[key: string]: string}): void
@@ -59,28 +59,36 @@ class RPCServer<T extends ApiSpec> {
   }
 
   public oak_handler: Middleware = async (ctx, next) => {
-    console.log('oak handler, requesting body...')
     const body = await ctx.request.body()
-    console.log('reading body.value...')
     const bytes = await body.value
-    console.log({ bytes })
     const request_contract = msgpack.decode(bytes) as RequestContract
-    console.log('handle response', request_contract)
     ctx.response.body = msgpack.encode(await this.handle_request(request_contract))
     await next()
   }
 
   public express_handler = async (req: BareMinimumRequest, res: BareMinimumResponse, next: any) => {
-    const request_contract: RequestContract = await req.json()
+    const chunks: Buffer[] = []
+    const buffer: Buffer = await new Promise((resolve, reject) => {
+      req
+        .on('data', (chunk: Buffer) => {
+          chunks.push(chunk)
+        })
+        .on('end', () => {
+          resolve(Buffer.concat(chunks))
+        })
+        .on('error', reject)
+    })
+    const request_contract = msgpack.decode(buffer.buffer) as RequestContract 
     const result = await this.handle_request(request_contract)
     this.send(res, result)
   }
 
   public sveltekit_handler = async (args: { request: Request }) => {
-    const request_contract: RequestContract = await args.request.json()
+    const blob = await args.request.blob()
+    const buffer = await blob.arrayBuffer()
+    const request_contract = msgpack.decode(buffer) as RequestContract
     const result = await this.handle_request(request_contract)
     return { body: result }
-
   }
 }
 

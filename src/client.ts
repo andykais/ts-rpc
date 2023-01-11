@@ -1,6 +1,6 @@
 import { RequestContract, ResponseContract, ContentType } from './contracts.ts'
 import { RichJson, ApiFunction, ApiSpec, RPCError } from './types.ts'
-import * as msgpack from 'npm:@msgpack/msgpack'
+import * as msgpack from 'https://deno.land/x/msgpackr@v1.8.0/index.js'
 
 
 // ============================== Util Types ============================== \\
@@ -60,18 +60,12 @@ class Client<T extends ApiSpec> {
   }
 
   #encode(contract: RequestContract) {
-    // body: JSON.stringify(contract),
     const encoded = msgpack.encode(contract)
-    console.log({ encoded })
     return encoded
   }
 
   async #decode(response: Response): Promise<ResponseContract> {
-    // return await response.json()
-    const blob = await response.blob()
-    console.log(blob)
-    const buffer = await blob.arrayBuffer()
-    console.log({ buffer })
+    const buffer = new Uint8Array(await response.arrayBuffer())
     return msgpack.decode(buffer) as ResponseContract
   }
 
