@@ -1,5 +1,7 @@
 import { RichJson } from './types.ts'
 
+export const ContentType = 'application/msgpack'
+
 interface ErrorContract {
   name: string
   message: string
@@ -21,3 +23,5 @@ export interface FailedResponse {
   error: ErrorContract
 }
 export type ResponseContract = SuccessfulResponse | FailedResponse
+
+export class BrokenContractError extends Error {}

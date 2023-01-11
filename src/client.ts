@@ -1,5 +1,6 @@
-import { RequestContract, ResponseContract } from './contracts.ts'
+import { RequestContract, ResponseContract, ContentType } from './contracts.ts'
 import { RichJson, ApiFunction, ApiSpec, RPCError } from './types.ts'
+import * as msgpack from 'npm:@msgpack/msgpack'
 
 
 // ============================== Util Types ============================== \\
@@ -21,8 +22,8 @@ interface RPCClientOptions {
   common_errors?: typeof RPCError[]
 }
 
-class RestClient<T extends ApiSpec> {
-  public headers = {'Content-Type': 'application/json'}
+class Client<T extends ApiSpec> {
+  public headers = {'Content-Type': ContentType}
   public registered_errors: { [error_classname: string]: typeof RPCError } = {}
   public fetch_impl: typeof fetch | undefined
 
@@ -40,12 +41,12 @@ class RestClient<T extends ApiSpec> {
     const contract: RequestContract = { module_path, method, params }
     const options = {
       method: 'PUT',
-      body: JSON.stringify(contract),
+      body: this.#encode(contract),
       headers: this.headers,
     }
     const fetch_impl = this.fetch_impl ?? fetch
     const response = await fetch_impl(this.rpc_route, options)
-    const body: ResponseContract = await response.json()
+    const body: ResponseContract = await this.#decode(response)
     if ('error' in  body) {
       if (this.registered_errors.hasOwnProperty(body.error.name)) {
         const error_class = this.registered_errors[body.error.name]
@@ -57,10 +58,31 @@ class RestClient<T extends ApiSpec> {
     }
     else return body.result
   }
+
+  #encode(contract: RequestContract) {
+    // body: JSON.stringify(contract),
+    const encoded = msgpack.encode(contract)
+    console.log({ encoded })
+    return encoded
+  }
+
+  async #decode(response: Response): Promise<ResponseContract> {
+    // return await response.json()
+    const blob = await response.blob()
+    console.log(blob)
+    const buffer = await blob.arrayBuffer()
+    console.log({ buffer })
+    return msgpack.decode(buffer) as ResponseContract
+  }
+
+  public static create<T extends ApiSpec>(rpc_route: string, options?: RPCClientOptions) {
+    const rest_client = new Client<T>(rpc_route, options)
+    return create_rpc_proxy<T>(rest_client, [])
+  }
 }
 
 class InvokeProxyTarget {}
-function create_rpc_proxy<T extends ApiSpec>(rpc_client: RestClient<T>, module_path: string[]): any {
+function create_rpc_proxy<T extends ApiSpec>(rpc_client: Client<T>, module_path: string[]): any {
   return new Proxy(InvokeProxyTarget, {
     get: (target: any, prop: string) => {
       return create_rpc_proxy(rpc_client, [...module_path, prop])
@@ -73,9 +95,4 @@ function create_rpc_proxy<T extends ApiSpec>(rpc_client: RestClient<T>, module_p
   })
 }
 
-function create_rpc_client<T extends ApiSpec>(rpc_route: string, options: RPCClientOptions = {}): CreateClientApi<T> {
-  const rest_client = new RestClient<T>(rpc_route, options)
-  return create_rpc_proxy<T>(rest_client, [])
-}
-
-export { create_rpc_client }
+export { Client }
