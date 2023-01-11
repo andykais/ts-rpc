@@ -1,4 +1,4 @@
-export { assertEquals as assert_equals } from "https://deno.land/std@0.155.0/testing/asserts.ts";
+export { assertEquals as assert_equals, assert as assert_true } from "https://deno.land/std@0.155.0/testing/asserts.ts";
 export { expectType as expect_type } from "npm:ts-expect"
 
 function test(name: string, fn: () => any, only = false) {

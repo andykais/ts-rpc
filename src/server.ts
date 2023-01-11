@@ -8,10 +8,14 @@ import { Buffer } from "https://deno.land/std@0.170.0/node/buffer.ts";
 
 // ============================== Util Types ============================== \\
 
-export type CreateServerApiFunction<T extends ApiFunction> = (...args: Parameters<T>) => ReturnType<T> | Promise<ReturnType<T>>
+export type CreateServerApiFunction<T extends ApiFunction> = (...args: Parameters<T>) => ReturnType<T>
 
 export type CreateServerApi<T extends ApiSpec> = {
-  [K in keyof T]: T[K] extends ApiSpec ? CreateServerApi<T[K]> : T[K] extends ApiFunction ? CreateServerApiFunction<T[K]> : never
+  [K in keyof T]: T[K] extends ApiSpec
+    ? CreateServerApi<T[K]>
+    : T[K] extends ApiFunction
+      ? CreateServerApiFunction<T[K]>
+      : never
 }
 
 interface BareMinimumRequest {
@@ -23,7 +27,7 @@ interface BareMinimumResponse {
 }
 // ========================= Runtime Implementation ======================== \\
 
-class RPCServer<T extends ApiSpec> {
+class Server<T extends ApiSpec> {
   public constructor(private server_api: CreateServerApi<T>) {
   }
 
@@ -90,12 +94,11 @@ class RPCServer<T extends ApiSpec> {
     const result = await this.handle_request(request_contract)
     return { body: result }
   }
+
+  static create<T extends ApiSpec>(server_api: CreateServerApi<T>) {
+    const rpc_server = new Server(server_api)
+    return rpc_server
+  }
 }
 
-function create_rpc_server<T extends ApiSpec>(server_api: CreateServerApi<T>) {
-  const rpc_server = new RPCServer(server_api)
-  return rpc_server
-}
-
-export { RPCServer, create_rpc_server }
-
+export { Server }

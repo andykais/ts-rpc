@@ -27,7 +27,7 @@ class Client<T extends ApiSpec> {
   public registered_errors: { [error_classname: string]: typeof RPCError } = {}
   public fetch_impl: typeof fetch | undefined
 
-  public constructor(public rpc_route: string, options: RPCClientOptions = {}) {
+  private constructor(public rpc_route: string, options: RPCClientOptions = {}) {
     if (options.fetch) this.fetch_impl = options.fetch
     else this.fetch_impl = fetch
     const { common_errors = [] } = options
@@ -69,7 +69,7 @@ class Client<T extends ApiSpec> {
     return msgpack.decode(buffer) as ResponseContract
   }
 
-  public static create<T extends ApiSpec>(rpc_route: string, options?: RPCClientOptions) {
+  public static create<T extends ApiSpec>(rpc_route: string, options?: RPCClientOptions): CreateClientApi<T> {
     const rest_client = new Client<T>(rpc_route, options)
     return create_rpc_proxy<T>(rest_client, [])
   }
