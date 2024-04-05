@@ -65,6 +65,7 @@ interface InternalContext {
 class ClientRealtime {
   #ctx: InternalContext
   #status: Promise<void> | undefined
+  #status_resolver: PromiseWithResolvers<void> | undefined
   #event_target: EventTarget
   #event_source: EventSource | undefined
 
@@ -73,8 +74,13 @@ class ClientRealtime {
     this.#event_target = new EventTarget()
   }
 
+  get target() {
+    return this.#event_target
+  }
+
   get status() {
-    return this.#status ?? Promise.resolve()
+    if (this.#status_resolver) return this.#status_resolver.promise
+    else return Promise.resolve()
   }
 
   public async connect() {
@@ -86,13 +92,17 @@ class ClientRealtime {
     const event_source_connected = Promise.withResolvers<void>()
 
     const status_resolver = Promise.withResolvers<void>()
-    this.#status = status_resolver.promise
+    this.#status_resolver = status_resolver
+    // this.#status = status_resolver.promise
     this.#event_source = new EventSource(url)
     console.log('event source called.')
     this.#event_source.addEventListener('message', ev => {
       const event_contract: contracts.EventContract = JSON.parse(ev.data)
       if (event_contract.event_type === 'connected') {
         event_source_connected.resolve()
+      } else if (event_contract.event_type === 'emit') {
+        const event_key = [...event_contract.event.namespace, event_contract.event.name].join('.')
+        this.#event_target.dispatchEvent(new CustomEvent(event_key, {detail: event_contract.event.data}))
       }
       console.log({event_contract})
     })
@@ -111,6 +121,16 @@ class ClientRealtime {
 
     await event_source_connected.promise
   }
+
+  public disconnect() {
+    if (!this.#event_source) {
+      throw new Error(`Event source not initialized`)
+    }
+
+    this.#event_source.close()
+    this.#status_resolver?.resolve()
+  }
+
 }
 
 class ClientManager {
@@ -129,10 +149,6 @@ class ClientManager {
   }
 
   public async set_header() {
-    throw new Error('unimplemented')
-  }
-
-  public async realtime_disconnect() {
     throw new Error('unimplemented')
   }
 

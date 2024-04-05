@@ -1,4 +1,4 @@
-import { test } from '../../testing/tools.ts'
+import { test } from './tools/tools.ts'
 import * as rpc from '../server.ts'
 import * as rpc_client from '../client.ts'
 import {z, oak} from '../src/deps.server.ts'
@@ -15,7 +15,7 @@ interface User {
 }
 
 type Events =
-  | rpc.Event<'user_message', User>
+  | rpc.Event<'user_message', {chat_message: string}>
   | rpc.Event<'client_added', User>
   | rpc.Event<'client_removed', User>
 
@@ -34,7 +34,9 @@ class ChatApi extends rpc.ApiController<Context, Events> {
 
   // TODO some kind of 'auth' protocol that allows for attaching contextual data (either via headers or baked into the protocol)
   async send_message(user_id: number, message: string) {
-    throw new Error('unimplemented')
+    // TODO important note about this design. It is nice to have context, but we _need_ to instantiate the class on every request
+    // or else we will be swapping this in and out which cannot work with async code
+    this.request.realtime.emit('user_message', {chat_message: 'foobar'})
   }
 
   async join_chat(username: string) {
@@ -139,17 +141,7 @@ test.only('client & server w/ realtime events', async t => {
   const app = new oak.Application()
   const router = new oak.Router()
   const context: Context = { db: new Database() }
-  // router.get('', ctx => {
-  //   ctx.sendEvents
-  // })
-  // router.all('', ctx => {
-  //   ctx.sendEvents
-  // })
-
   router.all('/rpc/:signature', rpc.adapt(new Api(context)))
-  // app.use('/rpc/:signature', (ctx) => {
-  //   console.log('middleware?')
-  // })
   app.use(router.routes())
   const abort_controller = new AbortController()
   app.listen({ port: 8001, signal: abort_controller.signal })
@@ -163,13 +155,14 @@ test.only('client & server w/ realtime events', async t => {
   console.log('connected to realtime!')
   // await realtime_error_promise.promise
   // console.log('aborting server...')
-  await client.manager.realtime.status
   // client.chat.on('user_message', data => {
   // })
   // // or
   // client.manager.realtime.on('chat.user_message', data => {
   // })
 
+  client.manager.realtime.disconnect()
+  await client.manager.realtime.status
   abort_controller.abort()
   await new Promise(resolve => app.addEventListener('close', resolve))
   console.log('server closed')
