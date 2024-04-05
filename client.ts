@@ -39,8 +39,11 @@ class UrlRoute {
     return new UrlRoute({url_origin, static_route, route_signature_suffix})
   }
 
-  public get_url(request_contract: contracts.RequestContract) {
-    if (this.config.route_signature_suffix) return `${this.config.url_origin}${this.config.static_route}/${request_contract.namespace.join('.')}`
+  public get_url(request_contract: contracts.RequestContract | contracts.EventRequestMessage) {
+    if (this.config.route_signature_suffix) {
+      if (request_contract.type === '__SSE__') return `${this.config.url_origin}${this.config.static_route}/${request_contract.type}`
+      else return `${this.config.url_origin}${this.config.static_route}/${request_contract.namespace.join('.')}`
+    }
     else return `${this.config.url_origin}${this.config.static_route}`
   }
 }
@@ -49,19 +52,80 @@ interface ClientConfig {
   route: string
 }
 
-class ClientManager {
-  #client: Client
-  #config: ClientConfig
-  #route: UrlRoute
+interface RealtimeConnectOptions {
+  onerror?: (ev: Event) => void
+}
 
-  public constructor(client: Client, config: ClientConfig) {
-    this.#client = client
-    this.#config = config
-    this.#route = UrlRoute.parse(config.route)
+interface InternalContext {
+  client: Client
+  config: ClientConfig
+  route: UrlRoute
+}
+
+class ClientRealtime {
+  #ctx: InternalContext
+  #status: Promise<void> | undefined
+  #event_target: EventTarget
+  #event_source: EventSource | undefined
+
+  public constructor(ctx: InternalContext) {
+    this.#ctx = ctx
+    this.#event_target = new EventTarget()
   }
 
-  public async realtime_connect() {
-    throw new Error('unimplemented')
+  get status() {
+    return this.#status ?? Promise.resolve()
+  }
+
+  public async connect() {
+    const event_source_contract: contracts.EventRequestMessage = {type: '__SSE__', event_type: 'request'}
+    const url = this.#ctx.route.get_url(event_source_contract)
+    // const url = route + `?type=sse&module=${encodeURIComponent(module)}&method=${encodeURIComponent(method)}&params=${encodeURIComponent(JSON.stringify(params))}`
+    // this.eventSource = new EventSource(url)
+    console.log('starting event source...')
+    const event_source_connected = Promise.withResolvers<void>()
+
+    const status_resolver = Promise.withResolvers<void>()
+    this.#status = status_resolver.promise
+    this.#event_source = new EventSource(url)
+    console.log('event source called.')
+    this.#event_source.addEventListener('message', ev => {
+      const event_contract: contracts.EventContract = JSON.parse(ev.data)
+      if (event_contract.event_type === 'connected') {
+        event_source_connected.resolve()
+      }
+      console.log({event_contract})
+    })
+    // this.#event_source.onmessage = ({ data }) => {
+    //   console.log({data})
+    //   // const event_contract: contracts.EventContract = JSON.parse(data)
+    //   // const event_namespace_name = [...event_contract.namespace, event_contract.event.name].join('.')
+    //   // this.#event_target.dispatchEvent(new CustomEvent(event_namespace_name, {detail: event_contract}))
+    // }
+
+    // TODO handle errors
+    this.#event_source.onerror = e => {
+      console.log(e)
+      status_resolver.reject(new Error(`Event Source Error: ${e.type}`))
+    }
+
+    await event_source_connected.promise
+  }
+}
+
+class ClientManager {
+  #ctx: InternalContext
+  realtime: ClientRealtime
+  // #event_target: EventTarget
+  // #event_source: EventSource | undefined
+
+  public constructor(client: Client, config: ClientConfig) {
+    this.#ctx = {
+      client: client,
+      config: config,
+      route: UrlRoute.parse(config.route),
+    }
+    this.realtime = new ClientRealtime(this.#ctx)
   }
 
   public async set_header() {
@@ -74,7 +138,7 @@ class ClientManager {
 
   public async call(request_contract: contracts.RequestContract) {
     // TODO serialize via messagepack to support Date/Uint8Array
-    const response = await fetch(this.#route.get_url(request_contract), {
+    const response = await fetch(this.#ctx.route.get_url(request_contract), {
       method: 'PUT',
       body: JSON.stringify(request_contract)
     })
@@ -100,11 +164,14 @@ function create_proxy(client: Client, namespace: string[]): any {
   return new Proxy(ProxyTarget, {
     get: (target, prop) => {
       if (typeof prop === 'symbol') return (target as any)[prop]
+      if (namespace.length === 0 && prop === 'manager') {
+        return client.manager
+      }
 
       return create_proxy(client, [...namespace, prop])
     },
     apply: async (target, prop, args: any[]) => {
-      const request_contract: contracts.RequestContract = {namespace, params: args}
+      const request_contract: contracts.RequestContract = {type: '__REQUEST__', namespace, params: args}
       return await client.manager.call(request_contract)
     },
   })

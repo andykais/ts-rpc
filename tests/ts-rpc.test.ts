@@ -15,7 +15,7 @@ interface User {
 }
 
 type Events =
-  | rpc.Event<'message', User>
+  | rpc.Event<'user_message', User>
   | rpc.Event<'client_added', User>
   | rpc.Event<'client_removed', User>
 
@@ -52,59 +52,14 @@ class ChatApi extends rpc.ApiController<Context, Events> {
       client.emit('client_added', user)
     }
   }
-
-  /* interesting thought here to propagate events outside of a module:
-
-    const rpc_server = new Api()
-    // essentially we would just dogfood our own client api on the server. Easy enough
-    rpc_server.chat.on('client_added', (client: ClientEmitter, data: User) => {
-      rpc_server.telemetry.record_new_user(data)
-    })
-
-  */
-
-  /*
-   * TODO we need to decide how event sse emitters are used on event endpoints
-   *
-
-  // another approach is on startup, the client can just create an event stream for the whole client. Something like
-  const client = new Client<ApiSkeleton>({ realtime: true })
-  // This is then always receiving events. The downside is that a 'real' sdk would do some auth before attempting to grab a realtime connection, e.g. its tied to business logic
-  // maybe I can make this explicit, something like a reserved method like 'realtime_connect' in the cases where we actually want to delay the connection
-  // for our needs though, this is simple and good.
-
-
-  @events
-  async connect_to_chat(client: ClientEmitter, username: string) {
-  }
-
-  async connect_to_chat(username) {
-    const user: User = { username }
-    if (clients.has(username)) throw new RPCError('Duplicate', 'Username already exists')
-
-    clients.set(username, { user, realtime: this.sse })
-
-    // clients.push({ user, realtime: this.sse })
-    this.sse.on('close', () => {
-      clients.delete(username)
-      // const index = clients.findIndex(c => c.user === user)
-      // clients.splice(index, 1)
-      for (const [_, client] of clients) client.realtime.emit('clientRemoved', user)
-      console.log(`client ${user.username} removed`)
-    })
-    for (const [_, client] of clients) client.realtime.emit('clientAdded', user)
-  }
-  */
 }
 
 class Api extends rpc.ApiController<Context> {
   chat = this.module(ChatApi)
 
   server_time(): Date {
-    throw new Error('unimplemented')
+    return new Date()
   }
-
-//   foo() {}
 }
 
 
@@ -155,7 +110,7 @@ test('client contracts', async t => {
   t.assert.equals(empty_response, undefined)
 })
 
-test.only('client & server', async t => {
+test('client & server', async t => {
   t.fake_fetch.disable()
 
   const app = new oak.Application()
@@ -164,20 +119,60 @@ test.only('client & server', async t => {
   router.put('/rpc/:signature', rpc.adapt(new Api(context)))
   app.use(router.routes())
   const abort_controller = new AbortController()
-  const promise = app.listen({ port: 8001, signal: abort_controller.signal })
-
-  await new Promise(resolve => setTimeout(resolve, 100))
+  app.listen({ port: 8001, signal: abort_controller.signal })
+  await new Promise(resolve => app.addEventListener('listen', resolve))
   expect.expectTypeOf<ApiSpec['chat']['list_clients']>().toMatchTypeOf<() => Promise<User[]>>()
   expect.expectTypeOf<ApiSpec['server_time']>().toMatchTypeOf<() => Promise<Date>>()
 
   const client = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
-  // await client.manager.realtime_connect()
 
   const users = await client.chat.list_clients()
   t.assert.equals(users, [])
 
   abort_controller.abort()
-  await promise
+  await new Promise(resolve => app.addEventListener('close', resolve))
+})
+
+test.only('client & server w/ realtime events', async t => {
+  t.fake_fetch.disable()
+
+  const app = new oak.Application()
+  const router = new oak.Router()
+  const context: Context = { db: new Database() }
+  // router.get('', ctx => {
+  //   ctx.sendEvents
+  // })
+  // router.all('', ctx => {
+  //   ctx.sendEvents
+  // })
+
+  router.all('/rpc/:signature', rpc.adapt(new Api(context)))
+  // app.use('/rpc/:signature', (ctx) => {
+  //   console.log('middleware?')
+  // })
+  app.use(router.routes())
+  const abort_controller = new AbortController()
+  app.listen({ port: 8001, signal: abort_controller.signal })
+  await new Promise(resolve => app.addEventListener('listen', resolve))
+
+  const client = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
+  const realtime_error_promise = Promise.withResolvers()
+  await client.manager.realtime.connect()
+
+  // await new Promise(resolve => setTimeout(resolve, 100))
+  console.log('connected to realtime!')
+  // await realtime_error_promise.promise
+  // console.log('aborting server...')
+  await client.manager.realtime.status
+  // client.chat.on('user_message', data => {
+  // })
+  // // or
+  // client.manager.realtime.on('chat.user_message', data => {
+  // })
+
+  abort_controller.abort()
+  await new Promise(resolve => app.addEventListener('close', resolve))
+  console.log('server closed')
 })
 
 

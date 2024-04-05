@@ -39,3 +39,25 @@ export type SpecBlueprint = {
     | SpecBlueprint
     | SpecMethod
 }
+
+type ExtractEventType<T> = {
+  [K in keyof T]: string
+}
+
+interface User {
+  id: number
+  username: string
+  created_at: Date
+}
+
+type Events =
+  | Event<'user_message', 'user message data'>
+  | Event<'client_added', 'client added'>
+  | Event<'client_removed', 'client removed'>
+
+interface EventEmitter<E> {
+  on<K extends keyof E>(event: K, fn: (data: E[K]) => void): void
+}
+
+// type X = Events['name']
+// type Y = EventEmitter<Events>['on']
