@@ -8,6 +8,7 @@ const RESERVED_NAMES = [
 interface ErrorContract {
   reason: string
   message: string
+  callstack: string | undefined
 }
 
 export interface RequestContract {

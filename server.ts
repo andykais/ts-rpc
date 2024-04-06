@@ -1,14 +1,25 @@
 import {oak} from './src/deps.server.ts'
 export * from './src/types.ts'
+import { type EventMapper } from './src/types.ts'
 import * as contracts from './src/contracts.ts'
 import * as errors from './src/errors.ts'
 
 class ClientEmitter<Events> {
+  #status_resolved: PromiseWithResolvers<void>
+
+  constructor() {
+    this.#status_resolved = Promise.withResolvers()
+  }
+
+  get status() {
+    return this.#status_resolved.promise
+  }
+
   emit(event: string, data: any) {
     throw new Error('unimplemented')
   }
 
-  on(event: string, fn: (data: any) => void) {
+  on<E extends EventMapper<Events>, K extends keyof E>(event: K, fn: (data: E[K]) => void) {
     throw new Error('unimplemented')
   }
 }
@@ -42,17 +53,20 @@ async function handle_request(
 ): Promise<contracts.ResponseContract> {
   try {
     let rpc_accessor: any = rpc_server
+    let rpc_accessor_prev = rpc_accessor
     for (const name of request_contract.namespace) {
+      rpc_accessor_prev = rpc_accessor
       rpc_accessor = rpc_accessor[name]
       if (rpc_accessor === undefined) throw new errors.RoutingError(request_contract)
     }
-    const result = await rpc_accessor(request_contract.params)
+    // TODO can we bind these once rather than every time? (for a small performance win)
+    const result = await rpc_accessor.bind(rpc_accessor_prev)(request_contract.params)
     return { result }
   } catch (e) {
-    if (e instanceof errors.RPCError) {
-      return { error: {reason: e.reason, message: e.message} }
+    if (e instanceof errors.ServerError) {
+      return { error: {reason: e.reason, message: e.message, callstack: e.stack} }
     } else {
-      return { error: {reason: `UNKNOWN`, message: e.message} }
+      return { error: {reason: `UNKNOWN`, message: e.message, callstack: e.stack} }
     }
   }
 }
@@ -85,7 +99,14 @@ function adapt(rpc_server: ApiController<any, any, any>) {
     } else {
       const request_contract: contracts.RequestContract = await ctx.request.body.json()
       const response_contract = await handle_request(rpc_server, request_contract)
-      return Response.json(response_contract)
+      // const response = new Response(JSON.stringify(response_contract), {
+      //   status: 200,
+      //   headers: {'content-type': 'application/json'},
+      // })
+      // console.log('response...', {response})
+      ctx.response.body = response_contract
+      // ctx.response = response
+      // return Response.json(response_contract)
     }
   }
   // return oak.route(async (req, ctx) => {

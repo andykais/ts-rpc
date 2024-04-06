@@ -160,7 +160,8 @@ class ClientManager {
     })
     const body: contracts.ResponseContract = await response.json()
     if ('error' in body) {
-      throw new errors.RPCError(body.error.reason, body.error.message)
+      if (body.error.callstack === undefined) throw new Error('handle me')
+      throw new errors.ServerError(body.error.reason, body.error.message, body.error.callstack)
     } else {
       return body.result
     }

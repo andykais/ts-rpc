@@ -5,7 +5,11 @@ import {z, oak} from '../src/deps.server.ts'
 import * as expect from 'npm:expect-type@0.19.0'
 
 
-class Database {}
+class Database {
+  create_user(username: string) {
+    return { id: Math.ceil(Math.random() * 1000), username, created_at: new Date() }
+  }
+}
 
 
 interface User {
@@ -14,20 +18,65 @@ interface User {
   created_at: Date
 }
 
+// type Events = {
+//   user_message: {chat_message: string}
+//   user_added: User
+//   user_removed: User
+// }
+
+// type AllKeys<T> = T extends any ? keyof T : never;
+
+// type PickType<T, K extends AllKeys<T>> = T extends { [k in K]?: any }
+//   ? T[K]
+//   : never;
+
+// type Merge<T extends object> = {
+//   [k in AllKeys<T>]: PickType<T, k>;
+// };
+
+// type UnionToRecordTuple<T> = T extends rpc.Event<any, any> ? Record<T['name'], T['data']> : never
+// type EventMapper<T> = Merge<UnionToRecordTuple<T>>
+
 type Events =
   | rpc.Event<'user_message', {chat_message: string}>
   | rpc.Event<'client_added', User>
   | rpc.Event<'client_removed', User>
 
+// type ChatEventsStage2 = Merge<EventMapper<Events>>
+
+
+class ChatRoom extends Map<User['id'], rpc.ClientEmitter<Events>> {
+  add_user(user: User, realtime: rpc.ClientEmitter<Events>) {
+    realtime.status.finally(() => {
+      this.delete(user.id)
+      for (const [user_id, client] of this.entries()) {
+        client.emit('client_removed', user)
+      }
+    })
+
+    this.set(user.id, realtime)
+    for (const [user_id, client] of this.entries()) {
+      if (user_id !== user.id) continue
+      client.emit('client_added', user)
+    }
+  }
+}
+
+type ChatRoomName = string
+class ChatRooms extends Map<ChatRoomName, ChatRoom> {
+  create(chat_room: string): ChatRoom {
+    const chat_room_impl = this.get(chat_room) ?? new ChatRoom()
+    this.set(chat_room, chat_room_impl)
+    return chat_room_impl
+  }
+}
+
 interface Context {
   db: Database
+  chat_rooms: ChatRooms
 }
 
 class ChatApi extends rpc.ApiController<Context, Events> {
-  // hmm is this good, or should we have a module specific context as well?
-  // the key piece here is tying a realtime connection to a 
-  protected chat_clients = new Map<User['id'], rpc.ClientEmitter<Events>>()
-
   list_clients(): User[] {
     return []
   }
@@ -39,20 +88,33 @@ class ChatApi extends rpc.ApiController<Context, Events> {
     this.request.realtime.emit('user_message', {chat_message: 'foobar'})
   }
 
-  async join_chat(username: string) {
-    // create user...
-    const user = { id: -1, username, created_at: new Date() }
-    // connect to chat...
-    this.chat_clients.set(user.id, this.request.realtime)
-    // handle cleanup when they disconnect...
-    this.request.realtime.on('disconnect', () => {
-      this.chat_clients.delete(user.id)
-    })
+  // // with validation
+  // join_chat = rpc(z.tuple([z.string(), z.string()]), async (username, chat_room) => {
+  //   const user = context.db.create_user(username)
+  //   const chat_room_impl = context.chat_rooms.create(chat_room)
+  //   chat_room_impl.add_user(request.realtime)
+  // })
 
-    // fire off message
-    for (const client of this.chat_clients.values()) {
-      client.emit('client_added', user)
-    }
+  // join_chat = (context: Context, request: ChatApi['request']) => async (username: string, chat_room: string) => {
+  //   const user = context.db.create_user(username)
+  //   const chat_room_impl = context.chat_rooms.create(chat_room)
+  //   chat_room_impl.add_user(request.realtime)
+  // }
+
+  // // with validation
+  // async join_chat(username: string, chat_room: string) {
+  //   z.string().parse(username)
+  //   z.string().parse(chat_room)
+  //   const user = this.context.db.create_user(username)
+  //   const chat_room_impl = this.context.chat_rooms.create(chat_room)
+  //   chat_room_impl.add_user(this.request.realtime)
+  // }
+
+  async join_chat(username: string, chat_room: string) {
+    console.log('this:', this)
+    const user = this.context.db.create_user(username)
+    const chat_room_impl = this.context.chat_rooms.create(chat_room)
+    chat_room_impl.add_user(user, this.request.realtime)
   }
 }
 
@@ -117,7 +179,7 @@ test('client & server', async t => {
 
   const app = new oak.Application()
   const router = new oak.Router()
-  const context: Context = { db: new Database() }
+  const context: Context = { db: new Database(), chat_rooms: new ChatRooms() }
   router.put('/rpc/:signature', rpc.adapt(new Api(context)))
   app.use(router.routes())
   const abort_controller = new AbortController()
@@ -140,7 +202,7 @@ test.only('client & server w/ realtime events', async t => {
 
   const app = new oak.Application()
   const router = new oak.Router()
-  const context: Context = { db: new Database() }
+  const context: Context = { db: new Database(), chat_rooms: new ChatRooms() }
   router.all('/rpc/:signature', rpc.adapt(new Api(context)))
   app.use(router.routes())
   const abort_controller = new AbortController()
@@ -149,7 +211,13 @@ test.only('client & server w/ realtime events', async t => {
 
   const client = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
   const realtime_error_promise = Promise.withResolvers()
-  await client.manager.realtime.connect()
+  // await client.manager.realtime.connect()
+
+  console.log('get server time...')
+  console.log(await client.server_time())
+  console.log('got server time.')
+
+  await client.chat.join_chat('bob', 'coolguys')
 
   // await new Promise(resolve => setTimeout(resolve, 100))
   console.log('connected to realtime!')
