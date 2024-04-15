@@ -28,6 +28,7 @@ export interface EventRequestMessage extends EventBaseContract {
 
 export interface EventConnectedMessage extends EventBaseContract {
   event_type: 'connected'
+  connection_id: string
 }
 
 export interface EventEmitMessage extends EventBaseContract {

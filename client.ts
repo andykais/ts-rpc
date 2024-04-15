@@ -60,6 +60,7 @@ interface InternalContext {
   client: Client
   config: ClientConfig
   route: UrlRoute
+  connection_id: string | undefined
 }
 
 class ClientRealtime {
@@ -99,6 +100,8 @@ class ClientRealtime {
     this.#event_source.addEventListener('message', ev => {
       const event_contract: contracts.EventContract = JSON.parse(ev.data)
       if (event_contract.event_type === 'connected') {
+        console.log('connected, setting connection_id:', event_contract.connection_id)
+        this.#ctx.connection_id = event_contract.connection_id
         event_source_connected.resolve()
       } else if (event_contract.event_type === 'emit') {
         const event_key = [...event_contract.event.namespace, event_contract.event.name].join('.')
@@ -130,7 +133,6 @@ class ClientRealtime {
     this.#event_source.close()
     this.#status_resolver?.resolve()
   }
-
 }
 
 class ClientManager {
@@ -144,6 +146,7 @@ class ClientManager {
       client: client,
       config: config,
       route: UrlRoute.parse(config.route),
+      connection_id: undefined,
     }
     this.realtime = new ClientRealtime(this.#ctx)
   }
@@ -154,9 +157,21 @@ class ClientManager {
 
   public async call(request_contract: contracts.RequestContract) {
     // TODO serialize via messagepack to support Date/Uint8Array
+    const headers: Record<string, string> = {}
+    if (this.#ctx.connection_id) {
+      /*
+       * NOTE this could be implemented in a few differents ways
+       * - generate a x-rpc-client-id upon any call that is missing the header
+       * - generate x-rpc-client-id client side and have the server just react to it
+       * - this current impl went the route of `x-rpc-connection-id` being created server side upon an SSE connection
+       */
+      headers['x-rpc-connection-id'] = this.#ctx.connection_id
+    }
+    console.log(`Client sending:`, {headers})
     const response = await fetch(this.#ctx.route.get_url(request_contract), {
       method: 'PUT',
-      body: JSON.stringify(request_contract)
+      body: JSON.stringify(request_contract),
+      headers,
     })
     const body: contracts.ResponseContract = await response.json()
     if ('error' in body) {

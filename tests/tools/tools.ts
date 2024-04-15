@@ -1,5 +1,6 @@
 import { path, assert, FakeTime, serve, file_server } from './deps.ts'
 import { FetchMock, FetchMockNotFound } from './fetch_mock.ts'
+import * as errors from '../../src/errors.ts'
 
 const __dirname = path.dirname(path.dirname(path.fromFileUrl(import.meta.url)))
 
@@ -91,6 +92,10 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
       await fn(test_context)
     } catch (e) {
       errors_occurred_in_test_function = true
+      if (e instanceof errors.ServerError) {
+        console.error(`Server callstack:`)
+        console.error(e.server_callstack)
+      }
       throw e
     } finally {
       try {

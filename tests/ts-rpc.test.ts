@@ -111,7 +111,7 @@ class ChatApi extends rpc.ApiController<Context, Events> {
   // }
 
   async join_chat(username: string, chat_room: string) {
-    console.log('this:', this)
+    // console.log('this:', this)
     const user = this.context.db.create_user(username)
     const chat_room_impl = this.context.chat_rooms.create(chat_room)
     chat_room_impl.add_user(user, this.request.realtime)
@@ -180,7 +180,7 @@ test('client & server', async t => {
   const app = new oak.Application()
   const router = new oak.Router()
   const context: Context = { db: new Database(), chat_rooms: new ChatRooms() }
-  router.put('/rpc/:signature', rpc.adapt(new Api(context)))
+  router.put('/rpc/:signature', rpc.adapt(Api, context))
   app.use(router.routes())
   const abort_controller = new AbortController()
   app.listen({ port: 8001, signal: abort_controller.signal })
@@ -203,7 +203,7 @@ test.only('client & server w/ realtime events', async t => {
   const app = new oak.Application()
   const router = new oak.Router()
   const context: Context = { db: new Database(), chat_rooms: new ChatRooms() }
-  router.all('/rpc/:signature', rpc.adapt(new Api(context)))
+  router.all('/rpc/:signature', rpc.adapt(Api, context))
   app.use(router.routes())
   const abort_controller = new AbortController()
   app.listen({ port: 8001, signal: abort_controller.signal })
@@ -211,7 +211,7 @@ test.only('client & server w/ realtime events', async t => {
 
   const client = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
   const realtime_error_promise = Promise.withResolvers()
-  // await client.manager.realtime.connect()
+  await client.manager.realtime.connect()
 
   console.log('get server time...')
   console.log(await client.server_time())

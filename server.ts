@@ -4,11 +4,17 @@ import { type EventMapper } from './src/types.ts'
 import * as contracts from './src/contracts.ts'
 import * as errors from './src/errors.ts'
 
+
+type SSE_Implementation =
+  | oak.ServerSentEventTarget
+
 class ClientEmitter<Events> {
   #status_resolved: PromiseWithResolvers<void>
+  #target: SSE_Implementation
 
-  constructor() {
+  constructor(sse_impl: SSE_Implementation) {
     this.#status_resolved = Promise.withResolvers()
+    this.#target = sse_impl
   }
 
   get status() {
@@ -16,6 +22,8 @@ class ClientEmitter<Events> {
   }
 
   emit(event: string, data: any) {
+    // TODO how do we handle namespaces?
+    // target.dispatchMessage(JSON.stringify(event_emit_contract))
     throw new Error('unimplemented')
   }
 
@@ -24,25 +32,30 @@ class ClientEmitter<Events> {
   }
 }
 
-interface Request<Events> {
-  realtime: ClientEmitter<Events>
-}
+class Request<Events> {
+  #realtime: ClientEmitter<Events> | undefined
 
-class Context {}
-
-class ApiController<C extends Context, Events = any, ApiDefinition = any> {
-  protected context: C
-
-  public constructor(context: C) {
-    this.context = context
+  constructor(realtime?: ClientEmitter<Events>) {
+    this.#realtime = realtime
   }
 
-  protected get request(): Request<Events> {
-    throw new Error('unimplemented')
+  get realtime(): ClientEmitter<Events> {
+    if (this.#realtime) return this.#realtime
+    else throw new Error(`No realtime connection for this client`)
+  }
+}
+
+class ApiController<C, Events = any, ApiDefinition = any> {
+  protected context: C
+  protected request: Request<Events>
+
+  public constructor(context: C, request: Request<Events>) {
+    this.context = context
+    this.request = request
   }
 
   protected module<T extends typeof ApiController<C, any, any>>(api_controller: T): InstanceType<T> {
-    return new api_controller(this.context) as InstanceType<T>
+    return new api_controller(this.context, this.request) as InstanceType<T>
   }
 }
 
@@ -72,8 +85,16 @@ async function handle_request(
 }
 
 // TODO separate modules for express/oak/etc
-function adapt(rpc_server: ApiController<any, any, any>) {
+function adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C) {
+  const realtime_connections_map = new Map<string, ClientEmitter<E>>()
   return async (ctx: oak.Context) => {
+    const connection_id = ctx.request.headers.get('x-rpc-connection-id')
+    const realtime_connection = connection_id
+      ? realtime_connections_map.get(connection_id)
+      : undefined
+    const request_context = new Request(realtime_connection)
+    const rpc_server = new rpc_class(context, request_context)
+
     if (ctx.request.headers.get('accept') === 'text/event-stream') {
       // ctx.response.headers.set('Connection', 'Keep-Alive')
       // ctx.response.headers.set('Content-Type', 'text/event-stream')
@@ -89,14 +110,20 @@ function adapt(rpc_server: ApiController<any, any, any>) {
       // weirdly oak's builtin works in the browser, but not deno
       const target = await ctx.sendEvents()
       console.log('oak set up SSE!')
-      const event_source_connected_contract: contracts.EventConnectedMessage = {type: '__SSE__', event_type: 'connected'}
+      const connection_id = crypto.randomUUID()
+      const event_source_connected_contract: contracts.EventConnectedMessage = {type: '__SSE__', event_type: 'connected', connection_id}
       target.dispatchMessage(JSON.stringify(event_source_connected_contract))
       // target.dispatchMessage(new oak.ServerSentEvent('ping', {data: JSON.stringify({hello: 'world'})}))
       target.addEventListener('close', e => {
-        console.log('remote closed')
+        realtime_connections_map.delete(connection_id)
       })
+
+      // TODO when we add more than just oak, we should put in an adapter for SSE implementations
+      const client_emitter = new ClientEmitter<E>(target)
+      realtime_connections_map.set(connection_id, client_emitter)
       // target.close()
     } else {
+      console.log(`Request: ${ctx.request.headers.get('x-rpc-connection-id')}`)
       const request_contract: contracts.RequestContract = await ctx.request.body.json()
       const response_contract = await handle_request(rpc_server, request_contract)
       // const response = new Response(JSON.stringify(response_contract), {
@@ -129,7 +156,6 @@ function adapt(rpc_server: ApiController<any, any, any>) {
 }
 
 export {
-  Context,
   ClientEmitter,
   ApiController,
   adapt
