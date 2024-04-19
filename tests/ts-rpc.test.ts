@@ -1,5 +1,6 @@
 import { test } from './tools/tools.ts'
-import * as rpc from '../server.ts'
+import * as rpc from 'ts-rpc/adapters/oak.ts'
+// import * as rpc from '../server.ts'
 import * as rpc_client from '../client.ts'
 import {z, oak} from '../src/deps.server.ts'
 import * as expect from 'npm:expect-type@0.19.0'
@@ -37,16 +38,22 @@ interface User {
 // type UnionToRecordTuple<T> = T extends rpc.Event<any, any> ? Record<T['name'], T['data']> : never
 // type EventMapper<T> = Merge<UnionToRecordTuple<T>>
 
-type Events =
-  | rpc.Event<'user_message', {chat_message: string}>
-  | rpc.Event<'client_added', User>
-  | rpc.Event<'client_removed', User>
+// type Events =
+//   | rpc.Event<'user_message', {chat_message: string}>
+//   | rpc.Event<'client_added', User>
+//   | rpc.Event<'client_removed', User>
+
+interface Events {
+  user_message: {chat_message: string}
+  client_added: User
+  client_removed: User
+}
 
 // type ChatEventsStage2 = Merge<EventMapper<Events>>
 
 
-class ChatRoom extends Map<User['id'], rpc.ClientEmitter<Events>> {
-  add_user(user: User, realtime: rpc.ClientEmitter<Events>) {
+class ChatRoom extends Map<User['id'], rpc.ServerSentEventsAdapter<Events>> {
+  add_user(user: User, realtime: rpc.ServerSentEventsAdapter<Events>) {
     realtime.status.finally(() => {
       this.delete(user.id)
       for (const [user_id, client] of this.entries()) {
@@ -77,7 +84,11 @@ interface Context {
 }
 
 class ChatApi extends rpc.ApiController<Context, Events> {
-  list_clients(): User[] {
+  list_chat_rooms(): string[] {
+    return [...this.context.chat_rooms.keys()]
+  }
+
+  list_users(chat_room: string): User[] {
     return []
   }
 
@@ -132,11 +143,11 @@ type ApiSpec = rpc.InferSpec<typeof Api>
 test('client contracts', async t => {
   t.assert.fetch({
     request: {
-      url: 'http://localhost:8080/rpc/chat.list_clients',
+      url: 'http://localhost:8080/rpc/chat.list_users',
       method: 'PUT',
       body: JSON.stringify({
-        namespace: ['chat', 'list_clients'],
-        params: [],
+        namespace: ['chat', 'list_users'],
+        params: ['coolguys'],
       })
     },
     response: {
@@ -145,7 +156,7 @@ test('client contracts', async t => {
   })
   const client = rpc_client.create<ApiSpec>('http://localhost:8080/rpc/:signature')
 
-  const users = await client.chat.list_clients()
+  const users = await client.chat.list_users('coolguys')
   t.assert.equals(users.length, 1)
   t.assert.equals(users[0].id, 0)
   t.assert.equals(users[0].username, 'bob')
@@ -185,13 +196,13 @@ test('client & server', async t => {
   const abort_controller = new AbortController()
   app.listen({ port: 8001, signal: abort_controller.signal })
   await new Promise(resolve => app.addEventListener('listen', resolve))
-  expect.expectTypeOf<ApiSpec['chat']['list_clients']>().toMatchTypeOf<() => Promise<User[]>>()
+  expect.expectTypeOf<ApiSpec['chat']['list_chat_rooms']>().toMatchTypeOf<() => Promise<string[]>>()
   expect.expectTypeOf<ApiSpec['server_time']>().toMatchTypeOf<() => Promise<Date>>()
 
   const client = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
 
-  const users = await client.chat.list_clients()
-  t.assert.equals(users, [])
+  const chat_rooms = await client.chat.list_chat_rooms()
+  t.assert.equals(chat_rooms, [])
 
   abort_controller.abort()
   await new Promise(resolve => app.addEventListener('close', resolve))
@@ -218,6 +229,10 @@ test.only('client & server w/ realtime events', async t => {
   console.log('got server time.')
 
   await client.chat.join_chat('bob', 'coolguys')
+
+  // client.chat.on('user_message', message => {
+
+  // })
 
   // await new Promise(resolve => setTimeout(resolve, 100))
   console.log('connected to realtime!')

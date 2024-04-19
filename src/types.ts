@@ -21,13 +21,18 @@ type EnsurePromise<T> = T extends Promise<infer V>
 
 type EnsureMethodReturnsPromise<T extends SpecMethod> = (...args: Parameters<T>) => EnsurePromise<ReturnType<T>>
 
+
+type SpecEventListenerInterface<Events> = {
+  on: <K extends keyof Events>(event: K, fn: (data: Events[K]) => void) => void
+}
+
 type ExtractSpec<T> = {
   [K in keyof T]:
     T[K] extends SpecMethod
       ? EnsureMethodReturnsPromise<T[K]>
       // ? T[K]
-      : T[K] extends ApiController<any, any, any>
-        ? ExtractSpec<T[K]>
+      : T[K] extends ApiController<any, infer E, any>
+        ? ExtractSpec<T[K]> & SpecEventListenerInterface<E>
         : never
 }
 
