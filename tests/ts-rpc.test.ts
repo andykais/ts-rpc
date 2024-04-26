@@ -19,30 +19,6 @@ interface User {
   created_at: Date
 }
 
-// type Events = {
-//   user_message: {chat_message: string}
-//   user_added: User
-//   user_removed: User
-// }
-
-// type AllKeys<T> = T extends any ? keyof T : never;
-
-// type PickType<T, K extends AllKeys<T>> = T extends { [k in K]?: any }
-//   ? T[K]
-//   : never;
-
-// type Merge<T extends object> = {
-//   [k in AllKeys<T>]: PickType<T, k>;
-// };
-
-// type UnionToRecordTuple<T> = T extends rpc.Event<any, any> ? Record<T['name'], T['data']> : never
-// type EventMapper<T> = Merge<UnionToRecordTuple<T>>
-
-// type Events =
-//   | rpc.Event<'user_message', {chat_message: string}>
-//   | rpc.Event<'client_added', User>
-//   | rpc.Event<'client_removed', User>
-
 interface Events {
   user_message: {chat_message: string}
   client_added: User
@@ -52,8 +28,8 @@ interface Events {
 // type ChatEventsStage2 = Merge<EventMapper<Events>>
 
 
-class ChatRoom extends Map<User['id'], rpc.ServerSentEventsAdapter<Events>> {
-  add_user(user: User, realtime: rpc.ServerSentEventsAdapter<Events>) {
+class ChatRoom extends Map<User['id'], rpc.ClientRealtimeEmitter<Events>> {
+  add_user(user: User, realtime: rpc.ClientRealtimeEmitter<Events>) {
     realtime.status.finally(() => {
       this.delete(user.id)
       for (const [user_id, client] of this.entries()) {
@@ -122,7 +98,6 @@ class ChatApi extends rpc.ApiController<Context, Events> {
   // }
 
   async join_chat(username: string, chat_room: string) {
-    // console.log('this:', this)
     const user = this.context.db.create_user(username)
     const chat_room_impl = this.context.chat_rooms.create(chat_room)
     chat_room_impl.add_user(user, this.request.realtime)
@@ -224,25 +199,19 @@ test.only('client & server w/ realtime events', async t => {
   const realtime_error_promise = Promise.withResolvers()
   await client.manager.realtime.connect()
 
-  console.log('get server time...')
-  console.log(await client.server_time())
-  console.log('got server time.')
+  await client.server_time()
+
+  let users_added: string[] = []
+  client.chat.on('client_added', message => {
+    users_added.push(message.username)
+  })
+
 
   await client.chat.join_chat('bob', 'coolguys')
 
-  // client.chat.on('user_message', message => {
+  t.assert.equals(users_added, ['bob'])
 
-  // })
-
-  // await new Promise(resolve => setTimeout(resolve, 100))
-  console.log('connected to realtime!')
-  // await realtime_error_promise.promise
-  // console.log('aborting server...')
-  // client.chat.on('user_message', data => {
-  // })
-  // // or
-  // client.manager.realtime.on('chat.user_message', data => {
-  // })
+  // TODO test non-existent routes and sending non serializable data (like functions)
 
   client.manager.realtime.disconnect()
   await client.manager.realtime.status

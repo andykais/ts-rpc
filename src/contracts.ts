@@ -13,6 +13,7 @@ interface ErrorContract {
 
 export interface RequestContract {
   type: '__REQUEST__'
+  method: string
   namespace: string[]
   params: any[]
 }

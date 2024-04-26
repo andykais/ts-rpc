@@ -42,7 +42,7 @@ class UrlRoute {
   public get_url(request_contract: contracts.RequestContract | contracts.EventRequestMessage) {
     if (this.config.route_signature_suffix) {
       if (request_contract.type === '__SSE__') return `${this.config.url_origin}${this.config.static_route}/${request_contract.type}`
-      else return `${this.config.url_origin}${this.config.static_route}/${request_contract.namespace.join('.')}`
+      else return `${this.config.url_origin}${this.config.static_route}/${[...request_contract.namespace, request_contract.method].join('.')}`
     }
     else return `${this.config.url_origin}${this.config.static_route}`
   }
@@ -87,38 +87,24 @@ class ClientRealtime {
   public async connect() {
     const event_source_contract: contracts.EventRequestMessage = {type: '__SSE__', event_type: 'request'}
     const url = this.#ctx.route.get_url(event_source_contract)
-    // const url = route + `?type=sse&module=${encodeURIComponent(module)}&method=${encodeURIComponent(method)}&params=${encodeURIComponent(JSON.stringify(params))}`
-    // this.eventSource = new EventSource(url)
-    console.log('starting event source...')
     const event_source_connected = Promise.withResolvers<void>()
 
     const status_resolver = Promise.withResolvers<void>()
     this.#status_resolver = status_resolver
     // this.#status = status_resolver.promise
     this.#event_source = new EventSource(url)
-    console.log('event source called.')
     this.#event_source.addEventListener('message', ev => {
       const event_contract: contracts.EventContract = JSON.parse(ev.data)
       if (event_contract.event_type === 'connected') {
-        console.log('connected, setting connection_id:', event_contract.connection_id)
         this.#ctx.connection_id = event_contract.connection_id
         event_source_connected.resolve()
       } else if (event_contract.event_type === 'emit') {
         const event_key = [...event_contract.event.namespace, event_contract.event.name].join('.')
         this.#event_target.dispatchEvent(new CustomEvent(event_key, {detail: event_contract.event.data}))
       }
-      console.log({event_contract})
     })
-    // this.#event_source.onmessage = ({ data }) => {
-    //   console.log({data})
-    //   // const event_contract: contracts.EventContract = JSON.parse(data)
-    //   // const event_namespace_name = [...event_contract.namespace, event_contract.event.name].join('.')
-    //   // this.#event_target.dispatchEvent(new CustomEvent(event_namespace_name, {detail: event_contract}))
-    // }
 
-    // TODO handle errors
     this.#event_source.onerror = e => {
-      console.log(e)
       status_resolver.reject(new Error(`Event Source Error: ${e.type}`))
     }
 
@@ -133,13 +119,26 @@ class ClientRealtime {
     this.#event_source.close()
     this.#status_resolver?.resolve()
   }
+
+  public on = (namespace: string[]) => (event: string, fn: (data: any) => void) => {
+    const event_key = [...namespace, event].join('.')
+    this.target.addEventListener(event_key, target_event => {
+      if (target_event instanceof CustomEvent) {
+        try {
+          fn(target_event.detail)
+        } catch (e) {
+          // nothing to really do with these errors here...we could potentially bubble them back out with the status?
+        }
+      } else {
+        throw new Error(`Received unexpected event ${target_event}`)
+      }
+    })
+  }
 }
 
 class ClientManager {
   #ctx: InternalContext
   realtime: ClientRealtime
-  // #event_target: EventTarget
-  // #event_source: EventSource | undefined
 
   public constructor(client: Client, config: ClientConfig) {
     this.#ctx = {
@@ -167,7 +166,6 @@ class ClientManager {
        */
       headers['x-rpc-connection-id'] = this.#ctx.connection_id
     }
-    console.log(`Client sending:`, {headers})
     const response = await fetch(this.#ctx.route.get_url(request_contract), {
       method: 'PUT',
       body: JSON.stringify(request_contract),
@@ -196,14 +194,27 @@ function create_proxy(client: Client, namespace: string[]): any {
   return new Proxy(ProxyTarget, {
     get: (target, prop) => {
       if (typeof prop === 'symbol') return (target as any)[prop]
-      if (namespace.length === 0 && prop === 'manager') {
-        return client.manager
+      else if (prop === 'on') {
+        return client.manager.realtime.on(namespace)
       }
-
-      return create_proxy(client, [...namespace, prop])
+      else if (namespace.length === 0 && prop === 'manager') {
+        return client.manager
+      } else {
+        return create_proxy(client, [...namespace, prop])
+      }
     },
     apply: async (target, prop, args: any[]) => {
-      const request_contract: contracts.RequestContract = {type: '__REQUEST__', namespace, params: args}
+      if (namespace.length === 0) {
+        throw new Error(`Unexpected empty namespace in apply prop '${prop}'`)
+      }
+      const namespace_actual = namespace.slice(0, namespace.length - 1)
+      const method = namespace.at(-1) as string
+      const request_contract: contracts.RequestContract = {
+        type: '__REQUEST__',
+        namespace: namespace_actual,
+        method,
+        params: args
+      }
       return await client.manager.call(request_contract)
     },
   })

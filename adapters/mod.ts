@@ -1,30 +1,11 @@
 import * as contracts from '../src/contracts.ts'
 import * as errors from '../src/errors.ts'
-import {ClientEmitter, ApiController, ClientRequest } from '../server.ts'
+import {ClientRealtimeEmitter, ApiController, ClientRequest } from '../server.ts'
 
 
 export abstract class ServerSentEventsAdapter<Events> {
   abstract send(contract: contracts.EventContract): void
   abstract get status(): Promise<void>
-
-  public emit<K extends keyof Events>(event: K, data: Events[K]) {
-    const contract: contracts.EventEmitMessage = {
-      type: '__SSE__',
-      event_type: 'emit',
-      event: {
-        name: event,
-        // TODO we need to bring back in a ClientEmitter abstraction for this...
-        namespace: ''
-        data,
-      }
-
-    }
-    this.send()
-  }
-
-//   addEventListener(event: 'close', fn: EventListenerOrEventListenerObject | null) {
-//     super.addEventListener(event, fn)
-//   }
 }
 
 export abstract class ServerAdapter {
@@ -39,11 +20,11 @@ export abstract class ServerAdapter {
     throw new Error('must be overridden in base class')
   }
 
-  load_controller(connection_id: string | undefined | null): ApiController<any, any, any> {
+  load_controller(namespace: string[], connection_id: string | undefined | null): ApiController<any, any, any> {
     const realtime_connection = connection_id
       ? this.realtime_connections_map.get(connection_id)
       : undefined
-    const request_context = new ClientRequest(realtime_connection)
+    const request_context = new ClientRequest(namespace, realtime_connection)
     return new this.rpc_class(this.context, request_context)
   }
 
@@ -58,12 +39,6 @@ export abstract class ServerAdapter {
     // TODO when we add more than just oak, we should put in an adapter for SSE implementations
     // const client_emitter = new ClientEmitter<any>({} as any)
     this.realtime_connections_map.set(connection_id, sse_adapter)
-
-
-    // throw new Error('unimplemented')
-    // sse_client.addEventListener('close', () => {
-    //   console.log('closing...')
-    // })
   }
 
 
@@ -79,8 +54,10 @@ export abstract class ServerAdapter {
         rpc_accessor = rpc_accessor[name]
         if (rpc_accessor === undefined) throw new errors.RoutingError(request_contract)
       }
+      rpc_accessor_prev = rpc_accessor
+      rpc_accessor = rpc_accessor[request_contract.method]
       // TODO can we bind these once rather than every time? (for a small performance win)
-      const result = await rpc_accessor.bind(rpc_accessor_prev)(request_contract.params)
+      const result = await rpc_accessor.bind(rpc_accessor_prev)(...request_contract.params)
       return { result }
     } catch (e) {
       if (e instanceof errors.ServerError) {
