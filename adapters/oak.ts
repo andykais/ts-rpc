@@ -1,4 +1,4 @@
-import {oak} from '../src/deps.server.ts'
+import * as oak from 'https://deno.land/x/oak/mod.ts'
 import * as contracts from '../src/contracts.ts'
 import * as adapter_base from './mod.ts'
 import {ClientRealtimeEmitter, ApiController, ClientRequest} from '../server.ts'

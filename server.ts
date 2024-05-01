@@ -1,5 +1,3 @@
-import {oak} from './src/deps.server.ts'
-export * from './src/types.ts'
 import { type EventMapper } from './src/types.ts'
 import * as contracts from './src/contracts.ts'
 import * as errors from './src/errors.ts'
@@ -71,3 +69,4 @@ export {
   ClientRealtimeEmitter,
   ApiController,
 }
+export * from './src/types.ts'
