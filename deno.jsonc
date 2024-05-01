@@ -1,6 +1,7 @@
 {
   "tasks": {
-    "test:watch": "deno test --watch --check --allow-net=0.0.0.0:8001 --trace-leaks tests/*.test.ts"
+    "test:watch": "deno test --check --allow-net=0.0.0.0:8001 --trace-leaks --watch tests/*.test.ts",
+    "test":       "deno test --check --allow-net=0.0.0.0:8001 --trace-leaks         tests/*.test.ts",
   },
 
   "imports": {
