@@ -8,10 +8,6 @@
     "test":       "deno test --check --allow-net=0.0.0.0:8001 --trace-leaks         tests/*.test.ts",
   },
 
-  "imports": {
-    "ts-rpc/": "./"
-  },
-
   "exports": {
     "./client.ts": "./client.ts",
     "./adapters/oak.ts": "./adapters/oak.ts",
