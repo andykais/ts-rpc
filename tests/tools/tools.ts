@@ -13,12 +13,20 @@ async function assert_file_contents(filepath: string, expected_content: string) 
   assert.assertEquals(file_contents, expected_content)
 }
 
+function assert_list_partial<T extends Record<PropertyKey, any>>(actual: T[], expected: Partial<T>[]) {
+  assert.assertEquals(actual.length, expected.length)
+  for (const index of expected.keys()) {
+    assert.assertObjectMatch(actual[index], expected[index])
+  }
+}
+
 
 interface Asserts {
   fetch: FetchMock['expector']
   fetch_mock_not_found: typeof assert_fetch_mock_not_found
   rejects: typeof assert.assertRejects
   equals: typeof assert.assertEquals
+  list_partial: typeof assert_list_partial
   not_equals: typeof assert.assertNotEquals
   file_contents: typeof assert_file_contents
 }
@@ -81,6 +89,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
         fetch_mock_not_found: assert_fetch_mock_not_found,
         rejects: assert.assertRejects,
         equals: assert.assertEquals,
+        list_partial: assert_list_partial,
         not_equals: assert.assertNotEquals,
         file_contents: assert_file_contents,
       }

@@ -125,7 +125,21 @@ class FetchMock {
         }
       }
       if (request.body) {
-        throw new Error('unimplemented')
+        if (input_request.body) {
+          if (typeof request.body === 'string')  {
+            const request_body_buffers = await Array.fromAsync(input_request.body)
+            const array_buffer = await new Blob(request_body_buffers).arrayBuffer()
+            const request_body = new Uint8Array(array_buffer)
+            const request_body_str = new TextDecoder().decode(request_body)
+            if (request.body !== request_body_str) {
+              continue
+            }
+          } else {
+            throw new Error('unimplemented')
+          }
+        } else {
+          continue
+        }
       }
 
       this.expectations.splice(index, 1)

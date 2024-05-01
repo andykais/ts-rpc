@@ -6,27 +6,43 @@ import {z, oak} from '../src/deps.server.ts'
 import * as expect from 'npm:expect-type@0.19.0'
 
 
-class Database {
-  create_user(username: string) {
-    return { id: Math.ceil(Math.random() * 1000), username, created_at: new Date() }
-  }
-}
-
-
 interface User {
   id: number
   username: string
   created_at: Date
 }
 
+
+class Database {
+  #users: Map<User['id'], User> = new Map()
+
+  create_user(username: string) {
+    const user = { id: Math.ceil(Math.random() * 1000), username, created_at: new Date() }
+    this.#users.set(user.id, user)
+    return user
+  }
+
+  get_user(user_id: number) {
+    const user = this.#users.get(user_id)
+    if (!user) throw new Error('not found')
+    else return user
+  }
+
+  list_users(query?: { user_ids: number[] }) {
+    const user_list = [...this.#users.values()]
+    if (query?.user_ids) {
+      return user_list.filter(user => query.user_ids.includes(user.id))
+    }
+    return user_list
+  }
+}
+
+
 interface Events {
   user_message: {chat_message: string}
   client_added: User
   client_removed: User
 }
-
-// type ChatEventsStage2 = Merge<EventMapper<Events>>
-
 
 class ChatRoom extends Map<User['id'], rpc.ClientRealtimeEmitter<Events>> {
   add_user(user: User, realtime: rpc.ClientRealtimeEmitter<Events>) {
@@ -39,9 +55,12 @@ class ChatRoom extends Map<User['id'], rpc.ClientRealtimeEmitter<Events>> {
 
     this.set(user.id, realtime)
     for (const [user_id, client] of this.entries()) {
-      if (user_id !== user.id) continue
       client.emit('client_added', user)
     }
+  }
+
+  list_users(context: Context) {
+    return context.db.list_users({user_ids: [...this.keys()]})
   }
 }
 
@@ -59,46 +78,31 @@ interface Context {
   chat_rooms: ChatRooms
 }
 
+
+class UserApi extends rpc.ApiController<Context> {
+  create(username: string) {
+    return this.context.db.create_user(username)
+  }
+}
+
 class ChatApi extends rpc.ApiController<Context, Events> {
   list_chat_rooms(): string[] {
     return [...this.context.chat_rooms.keys()]
   }
 
   list_users(chat_room: string): User[] {
-    return []
+    const chat_room_impl = this.context.chat_rooms.get(chat_room)
+    if (!chat_room_impl) throw new Error('not found')
+
+    return chat_room_impl.list_users(this.context)
   }
 
-  // TODO some kind of 'auth' protocol that allows for attaching contextual data (either via headers or baked into the protocol)
   async send_message(user_id: number, message: string) {
-    // TODO important note about this design. It is nice to have context, but we _need_ to instantiate the class on every request
-    // or else we will be swapping this in and out which cannot work with async code
     this.request.realtime.emit('user_message', {chat_message: 'foobar'})
   }
 
-  // // with validation
-  // join_chat = rpc(z.tuple([z.string(), z.string()]), async (username, chat_room) => {
-  //   const user = context.db.create_user(username)
-  //   const chat_room_impl = context.chat_rooms.create(chat_room)
-  //   chat_room_impl.add_user(request.realtime)
-  // })
-
-  // join_chat = (context: Context, request: ChatApi['request']) => async (username: string, chat_room: string) => {
-  //   const user = context.db.create_user(username)
-  //   const chat_room_impl = context.chat_rooms.create(chat_room)
-  //   chat_room_impl.add_user(request.realtime)
-  // }
-
-  // // with validation
-  // async join_chat(username: string, chat_room: string) {
-  //   z.string().parse(username)
-  //   z.string().parse(chat_room)
-  //   const user = this.context.db.create_user(username)
-  //   const chat_room_impl = this.context.chat_rooms.create(chat_room)
-  //   chat_room_impl.add_user(this.request.realtime)
-  // }
-
-  async join_chat(username: string, chat_room: string) {
-    const user = this.context.db.create_user(username)
+  async join_chat(user_id: number, chat_room: string) {
+    const user = this.context.db.get_user(user_id)
     const chat_room_impl = this.context.chat_rooms.create(chat_room)
     chat_room_impl.add_user(user, this.request.realtime)
   }
@@ -106,6 +110,8 @@ class ChatApi extends rpc.ApiController<Context, Events> {
 
 class Api extends rpc.ApiController<Context> {
   chat = this.module(ChatApi)
+
+  user = this.module(UserApi)
 
   server_time(): Date {
     return new Date()
@@ -121,7 +127,9 @@ test('client contracts', async t => {
       url: 'http://localhost:8080/rpc/chat.list_users',
       method: 'PUT',
       body: JSON.stringify({
-        namespace: ['chat', 'list_users'],
+        type: '__REQUEST__',
+        namespace: ['chat'],
+        method: 'list_users',
         params: ['coolguys'],
       })
     },
@@ -146,7 +154,9 @@ test('client contracts', async t => {
       url: 'http://localhost/rpc',
       method: 'PUT',
       body: JSON.stringify({
-        namespace: ['chat', 'send_message'],
+        type: '__REQUEST__',
+        namespace: ['chat'],
+        method: 'send_message',
         params: [0, 'hello world'],
       })
     },
@@ -179,11 +189,12 @@ test('client & server', async t => {
   const chat_rooms = await client.chat.list_chat_rooms()
   t.assert.equals(chat_rooms, [])
 
+  const server_status = new Promise(resolve => app.addEventListener('close', resolve))
   abort_controller.abort()
-  await new Promise(resolve => app.addEventListener('close', resolve))
+  await server_status
 })
 
-test.only('client & server w/ realtime events', async t => {
+test('client & server w/ realtime events', async t => {
   t.fake_fetch.disable()
 
   const app = new oak.Application()
@@ -195,133 +206,51 @@ test.only('client & server w/ realtime events', async t => {
   app.listen({ port: 8001, signal: abort_controller.signal })
   await new Promise(resolve => app.addEventListener('listen', resolve))
 
-  const client = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
+  const client_1 = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
   const realtime_error_promise = Promise.withResolvers()
-  await client.manager.realtime.connect()
+  await client_1.manager.realtime.connect()
 
-  await client.server_time()
+  await t.step({
+    name: 'test date serialization',
+    ignore: true,
+    fn: async () => {
+      await client_1.server_time()
+    }
+  })
 
-  let users_added: string[] = []
-  client.chat.on('client_added', message => {
-    users_added.push(message.username)
+  const users_added: User[] = []
+  client_1.chat.on('client_added', message => {
+    users_added.push(message)
   })
 
 
-  await client.chat.join_chat('bob', 'coolguys')
+  const user_bob = await client_1.user.create('bob')
+  await client_1.chat.join_chat(user_bob['id'], 'coolguys')
+  t.assert.list_partial(users_added, [{username: 'bob'}])
 
-  t.assert.equals(users_added, ['bob'])
+  const users = await client_1.chat.list_users('coolguys')
+  t.assert.list_partial(await client_1.chat.list_users('coolguys'), [{username: 'bob'}])
+
+  const client_2 = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
+  await client_2.manager.realtime.connect()
+  const user_alice = await client_2.user.create('alice')
+  await client_2.chat.join_chat(user_alice['id'], 'coolguys')
+  t.assert.list_partial(users_added, [{username: 'bob'}, {username: 'alice'}])
+
+  t.assert.list_partial(await client_1.chat.list_users('coolguys'), [{username: 'bob'}, {username: 'alice'}])
+
+  // now lets disconnect alice and make sure all our hooks for the disconnect fired correctly
+  client_2.manager.realtime.disconnect()
+  // this happens over io which uses the event loop, so we await here to make sure our message gets sent before we assert
+  await new Promise(resolve => setTimeout(resolve))
+  t.assert.list_partial(await client_1.chat.list_users('coolguys'), [{username: 'bob'}])
 
   // TODO test non-existent routes and sending non serializable data (like functions)
 
-  client.manager.realtime.disconnect()
-  await client.manager.realtime.status
+  client_1.manager.realtime.disconnect()
+  await client_1.manager.realtime.status
+  await client_2.manager.realtime.status
+  const server_status = new Promise(resolve => app.addEventListener('close', resolve))
   abort_controller.abort()
-  await new Promise(resolve => app.addEventListener('close', resolve))
-  console.log('server closed')
+  await server_status
 })
-
-
-// const User = z.object({
-//   id: z.string(),
-//   username: z.string(),
-//   created_at: z.datetime(),
-// })
-
-// const api = create_api({
-//   accounts: create_module({
-//     // design #1
-//     create: create_function({
-//       params: z.object({ username: z.string() }),
-//       result: User
-//     })
-
-//     // design #2
-//     create: create_function(
-//       z.object({ username: z.string() }),
-//       User,
-//     )
-
-//     // design #3
-//     create: z.function()
-//       .args([z.object({ username: z.string() })])
-//       .returns(User)
-//   })
-// })
-
-// // NOTE if we want to create a server function (validate args only, and make validation optional)
-// // and a client side function (validate returns as args) we may need to create our own function() method that dumps enough data to create those zod validators
-// const zfunc = z.function()
-//   .args([z.number()])
-//   .returns(z.string())
-
-
-
-
-// class AccountsController extends Controller {
-//   @validate(z.object({ username: z.string().optional() }))
-//   async create(data: { username: string | undefined }) {
-//     data.username ??= uuid.generate()
-//     return data
-//   }
-
-
-//   create = method()
-//     .validate(z.object({
-//       username: z.string()
-//     }))
-//     .respond(async data => {
-//       // do something
-//       return user
-//     })
-
-//   @api.endpoint()
-//   create = api.validate(z.object({ username: z.string() }), async data => {
-
-//   })
-
-//   events = new Emitter<Events>()
-// }
-
-// const accounts_module = module('accounts')
-//   .method(
-//     async data => {
-//       // do something
-//       return user
-//     }
-//   )
-
-
-// // lets compare this to how ptyhon projects do this
-// const python_code = python`
-
-//   @game_server.controller(url='/game_servers/<type>/instances')
-//   class GameServerInstanceController(Controller)
-//     @game_server.endpoint(url='/', method='POST')
-//     def launch(game_server_type_slug: str):
-//       return game_server_instance.resolve(self.context)
-// `
-
-
-
-// // lets compare this to how a web app router registers controllers
-// import { Application } from "jsr:@oak/oak/application";
-// import { Router } from "jsr:@oak/oak/router";
-
-// const router = new Router();
-// router.get("/", (ctx) => {
-//   ctx.response.body = `<!DOCTYPE html>
-//     <html>
-//       <head><title>Hello oak!</title><head>
-//       <body>
-//         <h1>Hello oak!</h1>
-//       </body>
-//     </html>
-//   `;
-// });
-
-// const app = new Application();
-// app.use(router.routes());
-// app.use(router.allowedMethods());
-
-// app.listen({ port: 8080 });
-
