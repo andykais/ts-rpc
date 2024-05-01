@@ -39,7 +39,7 @@ class Database {
 
 
 interface Events {
-  user_message: {chat_message: string}
+  user_message: {from_user_id: User['id']; chat_message: string}
   client_added: User
   client_removed: User
 }
@@ -62,13 +62,25 @@ class ChatRoom extends Map<User['id'], rpc.ClientRealtimeEmitter<Events>> {
   list_users(context: Context) {
     return context.db.list_users({user_ids: [...this.keys()]})
   }
+
+  send_message(user_id: User['id'], chat_message: string) {
+    for (const client of this.values()) {
+      client.emit('user_message', {from_user_id: user_id, chat_message })
+    }
+  }
 }
 
 type ChatRoomName = string
 class ChatRooms extends Map<ChatRoomName, ChatRoom> {
   create(chat_room: string): ChatRoom {
-    const chat_room_impl = this.get(chat_room) ?? new ChatRoom()
+    const chat_room_impl = super.get(chat_room) ?? new ChatRoom()
     this.set(chat_room, chat_room_impl)
+    return chat_room_impl
+  }
+
+  get(chat_room: string) {
+    const chat_room_impl = super.get(chat_room)
+    if (!chat_room_impl) throw new Error('not found')
     return chat_room_impl
   }
 }
@@ -92,16 +104,15 @@ class ChatApi extends rpc.ApiController<Context, Events> {
 
   list_users(chat_room: string): User[] {
     const chat_room_impl = this.context.chat_rooms.get(chat_room)
-    if (!chat_room_impl) throw new Error('not found')
-
     return chat_room_impl.list_users(this.context)
   }
 
-  async send_message(user_id: number, message: string) {
-    this.request.realtime.emit('user_message', {chat_message: 'foobar'})
+  send_message(user_id: number, chat_room: string, message: string) {
+    const chat_room_impl = this.context.chat_rooms.get(chat_room)
+    chat_room_impl.send_message(user_id, message)
   }
 
-  async join_chat(user_id: number, chat_room: string) {
+  join_chat(user_id: number, chat_room: string) {
     const user = this.context.db.get_user(user_id)
     const chat_room_impl = this.context.chat_rooms.create(chat_room)
     chat_room_impl.add_user(user, this.request.realtime)
@@ -157,7 +168,7 @@ test('client contracts', async t => {
         type: '__REQUEST__',
         namespace: ['chat'],
         method: 'send_message',
-        params: [0, 'hello world'],
+        params: [0, 'my-chat-room', 'hello world'],
       })
     },
     response: {
@@ -166,7 +177,7 @@ test('client contracts', async t => {
   })
   const client_without_signature = rpc_client.create<ApiSpec>('/rpc')
 
-  const empty_response = await client_without_signature.chat.send_message(0, 'hello world')
+  const empty_response = await client_without_signature.chat.send_message(0, 'my-chat-room', 'hello world')
   t.assert.equals(empty_response, undefined)
 })
 
@@ -218,15 +229,24 @@ test('client & server w/ realtime events', async t => {
     }
   })
 
-  const users_added: User[] = []
+  const events: {
+    client_added: Events['client_added'][]
+    user_message: Events['user_message'][]
+  } = {
+    client_added: [],
+    user_message: [],
+  }
   client_1.chat.on('client_added', message => {
-    users_added.push(message)
+    events.client_added.push(message)
+  })
+  client_1.chat.on('user_message', message => {
+    events.user_message.push(message)
   })
 
 
   const user_bob = await client_1.user.create('bob')
   await client_1.chat.join_chat(user_bob['id'], 'coolguys')
-  t.assert.list_partial(users_added, [{username: 'bob'}])
+  t.assert.list_partial(events.client_added, [{username: 'bob'}])
 
   const users = await client_1.chat.list_users('coolguys')
   t.assert.list_partial(await client_1.chat.list_users('coolguys'), [{username: 'bob'}])
@@ -235,9 +255,11 @@ test('client & server w/ realtime events', async t => {
   await client_2.manager.realtime.connect()
   const user_alice = await client_2.user.create('alice')
   await client_2.chat.join_chat(user_alice['id'], 'coolguys')
-  t.assert.list_partial(users_added, [{username: 'bob'}, {username: 'alice'}])
+  t.assert.list_partial(events.client_added, [{username: 'bob'}, {username: 'alice'}])
 
   t.assert.list_partial(await client_1.chat.list_users('coolguys'), [{username: 'bob'}, {username: 'alice'}])
+
+  await client_2.chat.send_message(user_alice.id, 'coolguys', 'sup nerds')
 
   // now lets disconnect alice and make sure all our hooks for the disconnect fired correctly
   client_2.manager.realtime.disconnect()
