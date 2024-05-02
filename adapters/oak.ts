@@ -4,6 +4,9 @@ import * as adapter_base from './mod.ts'
 import {ClientRealtimeEmitter, ApiController, ClientRequest} from '../server.ts'
 
 
+type OakRouterContext = oak.RouterContext<string, Record<string | number, string>, Record<string, any>>
+
+
 class ServerSentEventsAdapter<Events> extends adapter_base.ServerSentEventsAdapter<Events> {
   #status_resolved: PromiseWithResolvers<void>
   #target: oak.ServerSentEventTarget
@@ -30,7 +33,7 @@ class ServerSentEventsAdapter<Events> extends adapter_base.ServerSentEventsAdapt
 }
 
 class ServerAdapter extends adapter_base.ServerAdapter {
-  async handle_server_sent_events_request(ctx: oak.Context) {
+  async handle_server_sent_events_request(ctx: OakRouterContext) {
     // TODO error out if x-rpc-connection-id is already present?
     const target = await ctx.sendEvents()
     const sse_adapter = new ServerSentEventsAdapter<any>(target)
@@ -39,7 +42,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
 
   }
 
-  async handle_rpc_request(ctx: oak.Context) {
+  async handle_rpc_request(ctx: OakRouterContext) {
     const request_contract: contracts.RequestContract = await ctx.request.body.json()
     const connection_id = ctx.request.headers.get('x-rpc-connection-id')
     const rpc_controller = this.load_controller(request_contract.namespace, connection_id)
@@ -50,7 +53,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
   static adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C) {
     const adapter = new ServerAdapter(rpc_class, context)
 
-    return async (ctx: oak.Context) => {
+    return async (ctx: OakRouterContext) => {
       if (ctx.request.headers.get('accept') === 'text/event-stream') {
         await adapter.handle_server_sent_events_request(ctx)
       } else {

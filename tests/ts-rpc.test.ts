@@ -2,7 +2,7 @@ import { test } from './tools/tools.ts'
 import * as rpc from '../adapters/oak.ts'
 // import * as rpc from '../server.ts'
 import * as rpc_client from '../client.ts'
-import * as oak from 'https://deno.land/x/oak/mod.ts'
+import * as oak from 'jsr:@oak/oak'
 import * as expect from 'npm:expect-type@0.19.0'
 
 
