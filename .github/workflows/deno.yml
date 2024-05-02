@@ -44,3 +44,4 @@ jobs:
 
       - name: JSR Publish
         run: deno publish
+        if: github.event_name != 'pull_request'
