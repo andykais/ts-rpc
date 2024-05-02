@@ -1,5 +1,7 @@
 # ts-rpc
 
+A typesafe remote procedure call (RPC) library focused on human readable REST-like api calls and server pushes via server sent events. Define your server api once, and get client usage auto complete & type safety for free!
+
 
 ## Usage
 
