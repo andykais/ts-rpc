@@ -27,7 +27,7 @@ class ClientRealtimeEmitter<Events> {
     this.#realtime.send(contract)
   }
 
-  get status() {
+  get status(): Promise<void> {
     return this.#realtime.status
   }
 }

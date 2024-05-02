@@ -9,7 +9,7 @@ const DEFAULT_HOST = typeof (globalThis as any).document !== 'undefined'
 class UrlRoute {
   private constructor(private config: {url_origin: string; static_route: string; route_signature_suffix: boolean}) {}
 
-  public static parse(route: string) {
+  public static parse(route: string): UrlRoute {
     const url = new URL(route, DEFAULT_HOST)
     let pathname = url.pathname
     const url_origin = url.origin
@@ -39,7 +39,7 @@ class UrlRoute {
     return new UrlRoute({url_origin, static_route, route_signature_suffix})
   }
 
-  public get_url(request_contract: contracts.RequestContract | contracts.EventRequestMessage) {
+  public get_url(request_contract: contracts.RequestContract | contracts.EventRequestMessage): string {
     if (this.config.route_signature_suffix) {
       if (request_contract.type === '__SSE__') return `${this.config.url_origin}${this.config.static_route}/${request_contract.type}`
       else return `${this.config.url_origin}${this.config.static_route}/${[...request_contract.namespace, request_contract.method].join('.')}`
@@ -75,11 +75,11 @@ class ClientRealtime {
     this.#event_target = new EventTarget()
   }
 
-  get target() {
+  get target(): EventTarget {
     return this.#event_target
   }
 
-  get status() {
+  get status(): Promise<void> {
     if (this.#status_resolver) return this.#status_resolver.promise
     else return Promise.resolve()
   }

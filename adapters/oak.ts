@@ -5,6 +5,7 @@ import {ClientRealtimeEmitter, ApiController, ClientRequest} from '../server.ts'
 
 
 type OakRouterContext = oak.RouterContext<string, Record<string | number, string>, Record<string, any>>
+type OakRouterFunction = (ctx: OakRouterContext) => Promise<void>
 
 
 class ServerSentEventsAdapter<Events> extends adapter_base.ServerSentEventsAdapter<Events> {
@@ -50,7 +51,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
     ctx.response.body = response_contract
   }
 
-  static adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C) {
+  static adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C): OakRouterFunction {
     const adapter = new ServerAdapter(rpc_class, context)
 
     return async (ctx: OakRouterContext) => {
