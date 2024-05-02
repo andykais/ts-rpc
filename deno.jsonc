@@ -1,7 +1,7 @@
 {
   "name": "@andykais/ts-rpc",
 
-  "version": "0.1.0",
+  "version": "0.1.1",
 
   "tasks": {
     "test:watch": "deno test --check --allow-net=0.0.0.0:8001 --trace-leaks --watch tests/*.test.ts",

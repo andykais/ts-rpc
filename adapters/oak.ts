@@ -66,5 +66,3 @@ class ServerAdapter extends adapter_base.ServerAdapter {
 
 export const adapt = ServerAdapter.adapt
 export * from '../server.ts'
-// this is a required export for publish
-export { adapter_base }
