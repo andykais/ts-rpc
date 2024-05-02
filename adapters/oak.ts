@@ -1,4 +1,4 @@
-import * as oak from 'jsr:@oak/oak'
+import * as oak from 'jsr:@oak/oak@16.0.0'
 import * as contracts from '../src/contracts.ts'
 import * as adapter_base from './mod.ts'
 import {ClientRealtimeEmitter, ApiController, ClientRequest} from '../server.ts'

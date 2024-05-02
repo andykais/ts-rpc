@@ -1,8 +1,7 @@
 import { test } from './tools/tools.ts'
 import * as rpc from '../adapters/oak.ts'
-// import * as rpc from '../server.ts'
 import * as rpc_client from '../client.ts'
-import * as oak from 'jsr:@oak/oak'
+import * as oak from 'jsr:@oak/oak@16.0.0'
 import * as expect from 'npm:expect-type@0.19.0'
 
 
@@ -154,9 +153,6 @@ test('client contracts', async t => {
   t.assert.equals(users.length, 1)
   t.assert.equals(users[0].id, 0)
   t.assert.equals(users[0].username, 'bob')
-  // // TODO serializedates properly
-  // t.assert.equals(users[0].created_at, new Date())
-
 
   // now lets try this without a signature
   t.assert.fetch({
