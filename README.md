@@ -1,135 +1,107 @@
 # ts-rpc
 
+A typesafe remote procedure call (RPC) library focused on human readable REST-like api calls and server pushes via server sent events. Define your server api once, and get client usage auto complete & type safety for free!
+
+
 ## Usage
 
-First, define an api that both the client and server will use
-
+First, define an api for your backend
 ```ts
-// api.ts
+// this implementation uses an oak rest server, so we will import our backend dependencies from the oak adapter
+import * as rpc from 'ts-rpc/adapters/oak.ts'
 
-// set up some common data structures
-type Todo = {
+
+interface Todo {
   id: number
-  content: string
-  completed: boolean
-  completedOn?: Date
+  created_at: Date
+  message: string
+  completed_on: Date
 }
 
-// define the api
-type Api = {
-  todo: {
-    createTodo(todo: string): Todo
-    listTodos(): Todo[]
-    updateTodoState(todoId: Todo['id'], completed: boolean)
+class TodoApi extends rpc.ApiController<Context> {
+  create(message: string): Todo {
+    return this.context.db.create_todo({message, completed_on: null })
+  }
+  complete(todo_id; number): Todo {
+    this.context.db.update_todo(todo_id, {completed_on: new Date()})
+  }
+  list(): Todo[] {
+    return this.context.db.list_todos()
   }
 }
 
-export { Api, Todo }
-```
+class Api extends rpc.ApiController<Context> {
+  todo = this.module(TodoApi)
 
-Then, set up a server
-
-```ts
-// server.js
-import express from 'express'
-import { createRPCServer, GenerateServerApi } from '<some-package-name>'
-import { Api, Todo } from './api'
-
-let uniqueId = 0
-const database: { todos: Todo[] } = { todos: [] }
-
-type ServerApi = GenerateServerApi<Api>
-const api: ServerApi = {
-  todo: {
-    async createTodo(content) {
-      database.todos.push({ id: uniqueId, content, completed: false })
-      uniqueId++
-    }
-
-    async updateTodoState(id, completed) {
-      const todo = database.todos.find(t => t.id === id)
-      todo.completed = completed
-    }
-
-    async listTodos() {
-      return database.todos
-    }
+  time() {
+    return new Date()
   }
 }
-
-const app = express()
-app.use('/rpc', createRPCServer<Api>(api))
-app.listen(3000, () => console.log('Server listening on port 3000'))
 ```
 
-Finally, access the api from your browser
-
+Then, integrate it into your server
 ```ts
-// client.ts
-import { createRPCClient } from 'ts-rpc-proxy/client/index'
-import { Api } from './definition'
+import oak from 'oak'
+import Database from './database.ts'
 
-const client = createRPCClient<Api>('/rpc')
-
-;(async () => {
-  let todoItem = await client.todo.createTodo('test')
-
-  todoItem = await client.todo.updateTodoState(todoItem.id, true)
-
-  const todos = await client.todo.listTotos()
-})()
+const app = new oak.Application()
+const router = new oak.Router()
+const context: Context = { db: new Database() }
+router.put('/rpc', rpc.adapt(Api, context))
+app.use(router.routes())
+app.listen()
 ```
 
-See a fully working example in the [sample](./sample) folder.
+
+Finally, instantiate your client (in the browser or wherever)
+```ts
+import * as rpc from 'ts-rpc/client.ts'
+
+const client = rpc.create<ApiSpec>('/rpc')
+
+const todo = await client.todo.create('do laundry')
+await client.todo.complete(todo.id)
+const todos = client.todo.list()
+```
 
 ## Realtime
-
-Server push messages can be sent using [Server Sent
-Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events). The api
-is very similar to regular rpc functions.
+`ts-rpc` supports server push messages using [Server Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events).
 
 ```ts
-// api.ts
-import { EventStream } from '../src'
-
-type TodoEvents = EventStream<{
-  stateUpdate: [Todo]
-}>
-
-type Api = {
-  todo: {
-    todoEvents(): TodoEvents
+interface Events {
+  added: Todo
+  completed: Todo
+}
+class TodoApi extends rpc.ApiController<Context, Events> {
+  create(message: string): Todo {
+    const todo = this.context.db.create_todo({message, completed_on: null })
+    this.request.realtime.emit('completed', todo)
+  }
+  complete(todo_id; number): Todo {
+    this.context.db.update_todo(todo_id, {completed_on: new Date()})
+    const todo = this.context.db.get_todo(todo_id)
+    // `request` field is populated per-request with a class that maintains the SSE connection
+    this.request.realtime.emit('completed', todo)
+  }
+  list(): Todo[] {
+    return this.context.db.list_todos()
   }
 }
 ```
-
+These can then be listened to on the client like so:
 ```ts
-// server.ts
+import * as rpc from 'ts-rpc/client.ts'
 
-const todoEvents = []
-
-const api = {
-  todo: {
-    async updateTodoState(id, completed) {
-      const todo = database.todos.find(t => t.id === id)
-      todo.completed = completed
-      for (const emitter of todoEvents) emitter.emit('stateUpdate', todo)
-    }
-
-    async todoEvents() {
-      todoEvents.push(this.sse)
-      this.sse.onClose(todoEvents.filter(e => e !== this.sse))
-    }
-  }
-
-}
-```
-
-```ts
-// client.ts
-const emitter = new client.todo.todoEvents()
-
-emitter.on('stateUpdate', updatedTodo => {
-  console.log(`Todo ${updatedTodo.id} was marked ${updatedTodo.completed ? 'completed' : 'incomplete'}`)
+const client = rpc.create<ApiSpec>('/rpc')
+client.todo.on('added', todo => {
+  console.log(`Added a new todo: ${todo.message}`)
 })
+
+client.todo.on('completed', todo => {
+  console.log(`Completed todo ${todo.message} on ${todo.completed_on}`)
+})
+
+const todo = await client.todo.create('do laundry')
+await client.todo.complete(todo.id)
+const todos = client.todo.list()
 ```

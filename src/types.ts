@@ -1,39 +1,61 @@
-import { RPCError } from './errors'
+import { type ApiController } from '../server.ts'
+
 
 type JsonPrimitive = void | Date | string | number | boolean | null
 interface JsonMap extends Record<string, JsonPrimitive | JsonArray | JsonMap> {}
 interface JsonArray extends Array<JsonPrimitive | JsonArray | JsonMap> {}
-type Json = JsonPrimitive | JsonMap | JsonArray
+export type Json = JsonPrimitive | JsonMap | JsonArray
 
-type ApiFunction = (...args: any[]) => Json
-type ApiModule = {
-  [method: string]: ApiFunction
-}
-type ApiDefinition = {
-  [moduleNamespace: string]: ApiModule
+
+export type Event<EventName, EventData> = {
+  name: EventName
+  data: EventData
 }
 
-type EventsDefinition = {
-  [eventName: string]: any[]
-  // TODO add error types
-  // error: [RPCError]
-}
-type EventStream<T extends EventsDefinition> = {
-  'rpc-internal-identifier': 'sse'
-}
+export type SpecMethod = (...args: any[]) => any // TODO why cant I put the Json type here?
+export type SpecModule = typeof ApiController<any, any, any>
 
-export {
-  Json,
-  ApiFunction,
-  ApiModule,
-  ApiDefinition,
-  EventStream,
-  ValidateApiDefinition,
-  EventsDefinition,
-  ArgumentTypes
+type EnsurePromise<T> = T extends Promise<infer V>
+  ? Promise<V>
+  : Promise<T>
+
+type EnsureMethodReturnsPromise<T extends SpecMethod> = (...args: Parameters<T>) => EnsurePromise<ReturnType<T>>
+
+
+type SpecEventListenerInterface<Events> = {
+  /**
+   * A method on every rpc module, use this method to listen for events pushed to the client from the server
+   */
+  on: <K extends keyof Events>(event: K, fn: (data: Events[K]) => void) => void
 }
 
-// utility types
-type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never
+type ExtractSpec<T> = {
+  [K in keyof T]:
+    T[K] extends SpecMethod
+      ? EnsureMethodReturnsPromise<T[K]>
+      : T[K] extends ApiController<any, infer E, any>
+        ? ExtractSpec<T[K]> & SpecEventListenerInterface<E>
+        : never
+}
 
-type ValidateApiDefinition<T extends ApiDefinition> = T
+export type InferSpec<RPCServer extends typeof ApiController<any, any, any>> =
+  ExtractSpec<InstanceType<RPCServer>>
+
+export type SpecBlueprint = {
+  [name: string]:
+    | SpecBlueprint
+    | SpecMethod
+}
+
+
+type AllKeys<T> = T extends any ? keyof T : never;
+
+type PickType<T, K extends AllKeys<T>> = T extends { [k in K]?: any }
+  ? T[K]
+  : never;
+
+type Merge<T extends object> = {
+  [k in AllKeys<T>]: PickType<T, k>;
+};
+
+type UnionToRecordTuple<T> = T extends Event<any, any> ? Record<T['name'], T['data']> : never

@@ -1,0 +1,5 @@
+export * as path from 'jsr:@std/path@0.196.0'
+export * as fs from 'jsr:@std/fs@0.196.0'
+export * as mock from 'jsr:@std/testing@0.196.0/mock'
+export * as assert from 'jsr:@std/testing@0.196.0/asserts'
+export { FakeTime } from 'jsr:@std/testing@0.196.0/time'
