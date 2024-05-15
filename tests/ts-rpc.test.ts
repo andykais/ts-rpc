@@ -47,13 +47,13 @@ class ChatRoom extends Map<User['id'], rpc.ClientRealtimeEmitter<Events>> {
   add_user(user: User, realtime: rpc.ClientRealtimeEmitter<Events>) {
     realtime.status.finally(() => {
       this.delete(user.id)
-      for (const [user_id, client] of this.entries()) {
+      for (const client of this.values()) {
         client.emit('client_removed', user)
       }
     })
 
     this.set(user.id, realtime)
-    for (const [user_id, client] of this.entries()) {
+    for (const client of this.values()) {
       client.emit('client_added', user)
     }
   }
@@ -214,7 +214,6 @@ test('client & server w/ realtime events', async t => {
   await new Promise(resolve => app.addEventListener('listen', resolve))
 
   const client_1 = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')
-  const realtime_error_promise = Promise.withResolvers()
   await client_1.manager.realtime.connect()
 
   await t.step({
@@ -244,7 +243,6 @@ test('client & server w/ realtime events', async t => {
   await client_1.chat.join_chat(user_bob['id'], 'coolguys')
   t.assert.list_partial(events.client_added, [{username: 'bob'}])
 
-  const users = await client_1.chat.list_users('coolguys')
   t.assert.list_partial(await client_1.chat.list_users('coolguys'), [{username: 'bob'}])
 
   const client_2 = rpc_client.create<ApiSpec>('http://0.0.0.0:8001/rpc/:signature')

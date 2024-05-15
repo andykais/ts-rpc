@@ -1,4 +1,4 @@
-import { path, assert, FakeTime, serve, file_server } from './deps.ts'
+import { path, assert, FakeTime } from './deps.ts'
 import { FetchMock, FetchMockNotFound } from './fetch_mock.ts'
 import * as errors from '../../src/errors.ts'
 
@@ -64,7 +64,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
   const fetch_mock = new FetchMock()
   const fake_time = new FakeTimeTool()
 
-  async function setup() {
+  function setup() {
     // await Deno.remove(artifacts_folder, { recursive: true }).catch(e => {
     //   if (e instanceof Deno.errors.NotFound) {}
     //   else throw e
@@ -96,7 +96,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
     }
 
     let errors_occurred_in_test_function = false
-    await setup()
+    setup()
     try {
       await fn(test_context)
     } catch (e) {
@@ -113,6 +113,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
         if (errors_occurred_in_test_function) {
           fetch_mock.clean(true)
         }
+        // deno-lint-ignore no-unsafe-finally
         else throw e
 
       }

@@ -1,6 +1,4 @@
-import { type EventMapper } from './src/types.ts'
 import * as contracts from './src/contracts.ts'
-import * as errors from './src/errors.ts'
 import { ServerSentEventsAdapter } from "./adapters/mod.ts"
 
 

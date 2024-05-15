@@ -1,6 +1,6 @@
 import * as contracts from '../src/contracts.ts'
 import * as errors from '../src/errors.ts'
-import {ClientRealtimeEmitter, ApiController, ClientRequest } from '../server.ts'
+import {ApiController, ClientRequest } from '../server.ts'
 
 
 export abstract class ServerSentEventsAdapter<Events> {
@@ -16,7 +16,7 @@ export abstract class ServerAdapter {
   }
 
   // top level function that should be exposed in adapters
-  static adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C) {
+  static adapt<C, E>(_rpc_class: typeof ApiController<C, E, any>, _context: C) {
     throw new Error('must be overridden in base class')
   }
 

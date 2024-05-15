@@ -148,8 +148,8 @@ class FetchMock {
         expectation.live_expectation.status = 'RESPONDING'
         const result = await response
         expectation.live_expectation.status = 'FULFILLED'
-        return result
         expectation.promise_controller.resolve(input_request)
+        return result
       } else {
         const fetch_response = new Response(response.body, { headers: response.headers, status: response.status_code })
         expectation.live_expectation.status = 'FULFILLED'

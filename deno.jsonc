@@ -4,9 +4,18 @@
   "version": "0.1.1",
 
   "tasks": {
+    "typecheck": "deno check **/*.ts",
     "test:watch": "deno test --check --allow-net=0.0.0.0:8001 --trace-leaks --watch tests/*.test.ts",
     "test":       "deno test --check --allow-net=0.0.0.0:8001 --trace-leaks         tests/*.test.ts",
   },
+
+  "lint": {
+    "exclude": ["scratchwork"],
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["no-explicit-any"],
+    }
+  }
 
   "exports": {
     "./client.ts": "./client.ts",

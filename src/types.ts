@@ -30,7 +30,6 @@ type ExtractSpec<T> = {
   [K in keyof T]:
     T[K] extends SpecMethod
       ? EnsureMethodReturnsPromise<T[K]>
-      // ? T[K]
       : T[K] extends ApiController<any, infer E, any>
         ? ExtractSpec<T[K]> & SpecEventListenerInterface<E>
         : never
@@ -57,27 +56,3 @@ type Merge<T extends object> = {
 };
 
 type UnionToRecordTuple<T> = T extends Event<any, any> ? Record<T['name'], T['data']> : never
-export type EventMapper<T> = Merge<UnionToRecordTuple<T>>
-
-
-// type ExtractEventType<T> = {
-//   [K in keyof T]: string
-// }
-
-// interface User {
-//   id: number
-//   username: string
-//   created_at: Date
-// }
-
-// type Events =
-//   | Event<'user_message', 'user message data'>
-//   | Event<'client_added', 'client added'>
-//   | Event<'client_removed', 'client removed'>
-
-// interface EventEmitter<E> {
-//   on<K extends keyof E>(event: K, fn: (data: E[K]) => void): void
-// }
-
-// // type X = Events['name']
-// // type Y = EventEmitter<Events>['on']

@@ -1,7 +1,7 @@
 import * as oak from 'jsr:@oak/oak@16.0.0'
 import * as contracts from '../src/contracts.ts'
 import * as adapter_base from './mod.ts'
-import {ClientRealtimeEmitter, ApiController, ClientRequest} from '../server.ts'
+import {ApiController} from '../server.ts'
 
 
 type OakRouterContext = oak.RouterContext<string, Record<string | number, string>, Record<string, any>>
@@ -16,7 +16,7 @@ class ServerSentEventsAdapter<Events> extends adapter_base.ServerSentEventsAdapt
     super()
     this.#target = target
     this.#status_resolved = Promise.withResolvers()
-    target.addEventListener('close', e => {
+    target.addEventListener('close', () => {
       this.#status_resolved.resolve()
     })
   }

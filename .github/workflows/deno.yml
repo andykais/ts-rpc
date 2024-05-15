@@ -36,10 +36,10 @@ jobs:
       # - name: Verify formatting
       #   run: deno fmt --check
 
-#      - name: Run linter
-#        run: deno lint
+      - name: Lint
+        run: deno lint
 
-      - name: Run tests
+      - name: Test
         run: deno task test
 
   publish:

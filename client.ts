@@ -128,6 +128,8 @@ class ClientRealtime {
           fn(target_event.detail)
         } catch (e) {
           // nothing to really do with these errors here...we could potentially bubble them back out with the status?
+          // TODO Im not sure if this is the best idea. We could possibly have another promise or listener for errors?
+          this.#status_resolver?.reject(e)
         }
       } else {
         throw new Error(`Received unexpected event ${target_event}`)
@@ -150,7 +152,7 @@ class ClientManager {
     this.realtime = new ClientRealtime(this.#ctx)
   }
 
-  public async set_header() {
+  public set_header() {
     throw new Error('unimplemented')
   }
 
@@ -203,7 +205,7 @@ function create_proxy(client: Client, namespace: string[]): any {
         return create_proxy(client, [...namespace, prop])
       }
     },
-    apply: async (target, prop, args: any[]) => {
+    apply: async (_target, prop, args: any[]) => {
       if (namespace.length === 0) {
         throw new Error(`Unexpected empty namespace in apply prop '${prop}'`)
       }

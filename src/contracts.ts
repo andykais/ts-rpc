@@ -1,4 +1,4 @@
-const RESERVED_NAMES = [
+export const RESERVED_NAMES = [
   'manager',
   'request',
   'context',
@@ -45,15 +45,6 @@ export type EventContract =
   | EventConnectedMessage
   | EventEmitMessage
 
-// export interface RequestEventSourceContract {
-//   type: '__SSE__'
-// }
-
-// export interface EventSourceConnectedContract {
-//   type: '__SSE__'
-//   status: 'connected'
-// }
-
 /** returned from a server route handler if no errors occur */
 export interface SuccessfulResponse {
   result: any
@@ -63,12 +54,3 @@ export interface FailedResponse {
   error: ErrorContract
 }
 export type ResponseContract = SuccessfulResponse | FailedResponse
-
-// export interface EventContract {
-//   type: '__SSE__'
-//   namespace: string[]
-//   event: {
-//     name: string
-//     data: any
-//   }
-// }
