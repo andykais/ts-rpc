@@ -1,5 +1,5 @@
-export * as path from 'https://deno.land/std@0.192.0/path/mod.ts'
-export * as fs from 'https://deno.land/std@0.192.0/fs/mod.ts'
-export * as mock from 'https://deno.land/std@0.192.0/testing/mock.ts'
-export * as assert from 'https://deno.land/std@0.192.0/testing/asserts.ts'
-export { FakeTime } from "https://deno.land/std@0.192.0/testing/time.ts";
+export * as path from 'jsr:@std/path@0.196.0'
+export * as fs from 'jsr:@std/fs@0.196.0'
+export * as mock from 'jsr:@std/testing@0.196.0/mock'
+export * as assert from 'jsr:@std/testing@0.196.0/asserts'
+export { FakeTime } from 'jsr:@std/testing@0.196.0/time'
