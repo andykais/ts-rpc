@@ -23,6 +23,9 @@ type EnsureMethodReturnsPromise<T extends SpecMethod> = (...args: Parameters<T>)
 
 
 type SpecEventListenerInterface<Events> = {
+  /**
+   * A method on every rpc module, use this method to listen for events pushed to the client from the server
+   */
   on: <K extends keyof Events>(event: K, fn: (data: Events[K]) => void) => void
 }
 

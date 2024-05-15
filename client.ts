@@ -222,9 +222,35 @@ function create_proxy(client: Client, namespace: string[]): any {
   })
 }
 
+/**
+  * Create an rpc client based on the api type definition
+  *
+  * @param route The route declared on the server must match the route declared here.
+  *
+  * Routes can be simple strings:
+  * @example
+  * ```
+  * import * as rpc from 'jsr:@andykais/ts-rpc/client.ts'
+  * import { type Api } from './my_rpc_server_implementation.ts'
+  *
+  * type ApiSpec = rpc.InferSpec<typeof Api>
+  * const client = create<ApiSpec>('/rpc')
+  * ```
+  *
+  * Or they can declare a url parameter (just for better readability on which methods are hit)
+  * @example
+  * ```
+  * import * as rpc from 'jsr:@andykais/ts-rpc/client.ts'
+  * import { type Api } from './my_rpc_server_implementation.ts'
+  *
+  * type ApiSpec = rpc.InferSpec<typeof Api>
+  * const client = create<ApiSpec>('/rpc/:signature')
+  * ```
+  */
 function create<T extends types.SpecBlueprint>(route: string): T & Client {
   const client = new Client(route)
   return create_proxy(client, []) as any
 }
 
 export { create }
+export {type InferSpec} from './src/types.ts'
