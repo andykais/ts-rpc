@@ -1,4 +1,4 @@
-import * as sveltekit from '@sveltejs/kit'
+import * as sveltekit from 'npm:@sveltejs/kit@2.5.24'
 import * as contracts from '../src/contracts.ts'
 import * as adapter_base from './mod.ts'
 import {ApiController} from '../server.ts'
@@ -45,7 +45,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
   }
   */
 
-  async handle_rpc_request(ctx: sveltekit.RequestEvent) {
+  async handle_rpc_request(ctx: sveltekit.RequestEvent): Promise<Response> {
     const request_contract: contracts.RequestContract = await ctx.request.json()
     const connection_id = ctx.request.headers.get('x-rpc-connection-id')
     const rpc_controller = this.load_controller(request_contract.namespace, connection_id)
