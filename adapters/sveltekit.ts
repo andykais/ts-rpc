@@ -1,10 +1,10 @@
-import * as sveltekit from 'npm:@sveltejs/kit@2.5.24'
+import {type RequestEvent} from 'npm:@sveltejs/kit@2.5.24'
 import * as contracts from '../src/contracts.ts'
 import * as adapter_base from './mod.ts'
 import {ApiController} from '../server.ts'
 
 
-type SvektekitRouterFunction = (ctx: sveltekit.RequestEvent) => Promise<Response>
+type SvektekitRouterFunction = (ctx: RequestEvent) => Promise<Response>
 
 /*
 class ServerSentEventsAdapter<Events> extends adapter_base.ServerSentEventsAdapter<Events> {
@@ -45,7 +45,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
   }
   */
 
-  async handle_rpc_request(ctx: sveltekit.RequestEvent): Promise<Response> {
+  async handle_rpc_request(ctx: RequestEvent): Promise<Response> {
     const request_contract: contracts.RequestContract = await ctx.request.json()
     const connection_id = ctx.request.headers.get('x-rpc-connection-id')
     const rpc_controller = this.load_controller(request_contract.namespace, connection_id)
@@ -56,7 +56,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
   static adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C): SvektekitRouterFunction {
     const adapter = new ServerAdapter(rpc_class, context)
 
-    return async (ctx: sveltekit.RequestEvent): Promise<Response> => {
+    return async (ctx: RequestEvent): Promise<Response> => {
       if (ctx.request.headers.get('accept') === 'text/event-stream') {
         // await adapter.handle_server_sent_events_request(ctx)
         throw new Error('unimplemented')
