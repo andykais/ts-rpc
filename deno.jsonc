@@ -1,7 +1,7 @@
 {
   "name": "@andykais/ts-rpc",
 
-  "version": "0.2.0",
+  "version": "0.2.1",
 
   "tasks": {
     "typecheck": "deno check **/*.ts",
@@ -20,6 +20,7 @@
   "exports": {
     "./client.ts": "./client.ts",
     "./adapters/oak.ts": "./adapters/oak.ts",
+    "./adapters/sveltekit.ts": "./adapters/sveltekit.ts",
   },
 
   "license": "MIT"
