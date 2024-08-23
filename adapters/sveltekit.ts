@@ -75,7 +75,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
  *
  * @example
  * ```ts
- *// src/routes/rpc/+server.ts
+ * // src/routes/rpc/+server.ts
  * import type { RequestHandler } from "@sveltejs/kit"
  * import * as rpc from 'jsr:@andykais/ts-rpc/adapters/sveltekit.ts'
  * import {Api} from '$lib/api.ts'

@@ -15,10 +15,12 @@
       "tags": ["recommended"],
       "exclude": ["no-explicit-any"],
     }
-  }
+  },
 
   "exports": {
     "./client.ts": "./client.ts",
     "./adapters/oak.ts": "./adapters/oak.ts",
-  }
+  },
+
+  "license": "MIT"
 }

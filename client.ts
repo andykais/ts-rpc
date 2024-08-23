@@ -120,7 +120,7 @@ class ClientRealtime {
     this.#status_resolver?.resolve()
   }
 
-  public on = (namespace: string[]) => (event: string, fn: (data: any) => void) => {
+  public on = (namespace: string[]) => (event: string, fn: (data: any) => void): void => {
     const event_key = [...namespace, event].join('.')
     this.target.addEventListener(event_key, target_event => {
       if (target_event instanceof CustomEvent) {
