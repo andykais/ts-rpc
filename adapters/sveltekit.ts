@@ -68,23 +68,22 @@ class ServerAdapter extends adapter_base.ServerAdapter {
 }
 
 /**
- * Adapt your rpc class to the [Oak Framework](https://jsr.io/@oak/oak) backend.
+ * Adapt your rpc class to the [SvelteKit Framework](https://kit.svelte.dev/) backend.
  *
  * @param rpc_class The rpc class containing your server rpc implementation
  * @param context An object containing whatever data you want available in all rpc method
  *
  * @example
  * ```ts
- * import * as rpc from 'jsr:@andykais/ts-rpc/adapters/oak.ts'
- * import * as oak from 'jsr:@oak/oak'
- *
- * const app = new oak.Application()
- * const router = new oak.Router()
- * const context: Context = { db: new Database() }
- * router.put('/rpc/:signature', rpc.adapt(Api, context))
- * app.use(router.routes())
- * const abort_controller = new AbortController()
- * app.listen({ port: 8001, signal: abort_controller.signal })
+ *// src/routes/rpc/+server.ts
+ * import type { RequestHandler } from "@sveltejs/kit"
+ * import * as rpc from 'jsr:@andykais/ts-rpc/adapters/sveltekit.ts'
+ * import {Api} from '$lib/api.ts'
+ * 
+ * export const PUT: RequestHandler = async (params) => {
+ *   const context = params.locals
+ *   return await rpc.adapt(Api, context)(params)
+ * }
  * ````
  *
  */

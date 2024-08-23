@@ -130,7 +130,10 @@
         ]
       },
       "@std/internal@0.196.0": {
-        "integrity": "510a868cd8dc7a5a4de15b3864961b0f25d4b5b314f1f7d1bf6a5dd9a56173c1"
+        "integrity": "510a868cd8dc7a5a4de15b3864961b0f25d4b5b314f1f7d1bf6a5dd9a56173c1",
+        "dependencies": [
+          "jsr:@std/fmt@^0.196.0"
+        ]
       },
       "@std/io@0.223.0": {
         "integrity": "2d8c3c2ab3a515619b90da2c6ff5ea7b75a94383259ef4d02116b228393f84f1",
