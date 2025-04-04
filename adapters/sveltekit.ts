@@ -53,7 +53,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
     return Response.json(response_contract)
   }
 
-  static adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C): SvektekitRouterFunction {
+  static override adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C): SvektekitRouterFunction {
     const adapter = new ServerAdapter(rpc_class, context)
 
     return async (ctx: RequestEvent): Promise<Response> => {
