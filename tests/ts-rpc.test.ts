@@ -77,7 +77,7 @@ class ChatRooms extends Map<ChatRoomName, ChatRoom> {
     return chat_room_impl
   }
 
-  get(chat_room: string) {
+  override get(chat_room: string) {
     const chat_room_impl = super.get(chat_room)
     if (!chat_room_impl) throw new Error('not found')
     return chat_room_impl

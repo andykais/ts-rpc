@@ -31,13 +31,13 @@ interface MockExpectation {
 
 
 class FetchMockNotFound extends Error {
-  name = 'FetchMockNotFound'
+  override name = 'FetchMockNotFound'
 }
 
 
 class FetchMock {
   private disabled: boolean
-  private fetch_stub: mock.Stub<Window & typeof globalThis, Parameters<typeof fetch>> | undefined
+  private fetch_stub: mock.Stub<typeof globalThis, Parameters<typeof fetch>> | undefined
   private expectations: MockExpectation[]
   public constructor() {
     this.disabled = false
@@ -45,7 +45,7 @@ class FetchMock {
   }
 
   public enable() {
-    this.fetch_stub = mock.stub(window, 'fetch', this.responder)
+    this.fetch_stub = mock.stub(globalThis, 'fetch', this.responder)
     this.disabled = false
   }
 

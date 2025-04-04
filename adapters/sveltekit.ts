@@ -1,4 +1,4 @@
-import {type RequestEvent} from 'npm:@sveltejs/kit@2.5.24'
+import type {RequestEvent} from 'npm:@sveltejs/kit@2.5.24'
 import * as contracts from '../src/contracts.ts'
 import * as adapter_base from './mod.ts'
 import {ApiController} from '../server.ts'

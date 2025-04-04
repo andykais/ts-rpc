@@ -62,8 +62,10 @@ export abstract class ServerAdapter {
     } catch (e) {
       if (e instanceof errors.ServerError) {
         return { error: {reason: e.reason, message: e.message, callstack: e.stack} }
-      } else {
+      } else if (e instanceof Error) {
         return { error: {reason: `UNKNOWN`, message: e.message, callstack: e.stack} }
+      } else {
+        return { error: {reason: `UNKNOWN`, message: `${e}`, callstack: '' }}
       }
     }
   }

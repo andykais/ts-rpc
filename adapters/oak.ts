@@ -51,7 +51,7 @@ class ServerAdapter extends adapter_base.ServerAdapter {
     ctx.response.body = response_contract
   }
 
-  static adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C): OakRouterFunction {
+  static override adapt<C, E>(rpc_class: typeof ApiController<C, E, any>, context: C): OakRouterFunction {
     const adapter = new ServerAdapter(rpc_class, context)
 
     return async (ctx: OakRouterContext) => {
