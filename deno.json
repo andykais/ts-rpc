@@ -1,7 +1,7 @@
 {
   "name": "@andykais/ts-rpc",
 
-  "version": "0.2.2",
+  "version": "0.2.3",
 
   "tasks": {
     "typecheck": "deno check **/*.ts",
