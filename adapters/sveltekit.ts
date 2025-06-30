@@ -4,7 +4,7 @@ import * as adapter_base from './mod.ts'
 import {ApiController} from '../server.ts'
 
 
-type SvektekitRouterFunction = (ctx: RequestEvent) => Promise<Response>
+export type SvektekitRouterFunction = (ctx: RequestEvent) => Promise<Response>
 
 /*
 class ServerSentEventsAdapter<Events> extends adapter_base.ServerSentEventsAdapter<Events> {
@@ -33,7 +33,7 @@ class ServerSentEventsAdapter<Events> extends adapter_base.ServerSentEventsAdapt
 }
 */
 
-class ServerAdapter extends adapter_base.ServerAdapter {
+export class ServerAdapter extends adapter_base.ServerAdapter {
   /*
   async handle_server_sent_events_request(ctx: OakRouterContext) {
     // TODO error out if x-rpc-connection-id is already present?
